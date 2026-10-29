@@ -61,10 +61,12 @@
                   <td>
                     <span 
                       class="badge" 
-                      [class.bg-light-success]="row.clasificacion === 'Proyecto'"
-                      [class.bg-light-info]="row.clasificacion === 'Servicio'"
-                      [class.bg-light-primary]="row.clasificacion === 'Producto'">
-                      {{ row.clasificacion }}
+                      [class.bg-light-success]="normalizarClasificacion(row.clasificacion) === 'Proyecto'"
+                      [class.bg-light-info]="normalizarClasificacion(row.clasificacion) === 'Servicio'"
+                      [class.bg-light-primary]="normalizarClasificacion(row.clasificacion) === 'Producto'"
+                      [class.bg-light-warning]="normalizarClasificacion(row.clasificacion) === 'Varios'"
+                      [class.bg-light-secondary]="!['Proyecto', 'Servicio', 'Producto', 'Varios'].includes(normalizarClasificacion(row.clasificacion))">
+                      {{ normalizarClasificacion(row.clasificacion) }}
                     </span>
                   </td>
                   <td>

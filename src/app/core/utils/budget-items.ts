@@ -17,6 +17,15 @@ export interface BudgetLineItem {
   piezas: Parts[];
 }
 
+export function normalizarClasificacion(val?: string | null): string {
+  const clean = String(val || '').trim().toLowerCase();
+  if (clean === 'productos' || clean === 'producto') return 'Producto';
+  if (clean === 'servicios' || clean === 'servicio') return 'Servicio';
+  if (clean === 'proyectos' || clean === 'proyecto') return 'Proyecto';
+  if (clean === 'varios') return 'Varios';
+  return val ? String(val).trim() : 'General';
+}
+
 export function nuevaClaveItem(): string {
   return `item-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
@@ -30,7 +39,7 @@ export function itemDesdeProducto(product: Product, catalog: AssetCatalog, minMa
   return {
     clave: nuevaClaveItem(),
     productoId: product.id || null,
-    clasificacion: product.clasificacion || 'Producto',
+    clasificacion: normalizarClasificacion(product.clasificacion),
     nombre: product.nombre,
     cantidad: 1,
     tiempoSetup: Number(product.tiempoSetup) || 0,
@@ -45,7 +54,7 @@ export function serializarLineas(items: BudgetLineItem[]): Array<Record<string, 
   return (items || []).map(item => ({
     clave: item.clave,
     productoId: item.productoId,
-    clasificacion: item.clasificacion,
+    clasificacion: normalizarClasificacion(item.clasificacion),
     nombre: item.nombre,
     cantidad: item.cantidad,
     tiempoSetup: item.tiempoSetup,
@@ -99,7 +108,7 @@ export function hidratarLineas(
       return {
         clave: String(rec['clave'] || `item-${idx + 1}`),
         productoId,
-        clasificacion: String(rec['clasificacion'] || 'Producto'),
+        clasificacion: normalizarClasificacion(String(rec['clasificacion'] || 'Producto')),
         nombre: String(rec['nombre'] || `Ítem ${idx + 1}`),
         cantidad: Number(rec['cantidad']) || 1,
         tiempoSetup: Number(rec['tiempoSetup']) || 0,
@@ -123,7 +132,7 @@ export function hidratarLineas(
   return [{
     clave: 'item-legacy',
     productoId,
-    clasificacion: String(data['clasificacion'] || 'Producto'),
+    clasificacion: normalizarClasificacion(String(data['clasificacion'] || 'Producto')),
     nombre: String(data['descripcion'] || 'Ítem 1'),
     cantidad: Number(data['cantidadGlobal']) || 1,
     tiempoSetup: Number(data['tiempoSetup']) || 0,
@@ -135,7 +144,7 @@ export function hidratarLineas(
 }
 
 export function clasificacionCabecera(items: BudgetLineItem[]): string {
-  const tipos = [...new Set((items || []).map(i => i.clasificacion).filter(Boolean))];
+  const tipos = [...new Set((items || []).map(i => normalizarClasificacion(i.clasificacion)).filter(Boolean))];
   if (tipos.length === 1) return tipos[0];
   if (tipos.length > 1) return 'Varios';
   return 'General';
@@ -225,6 +234,7 @@ export function nombresDeLineas(row: Budget | Record<string, unknown>, allProduc
       const delCatalogo = id ? allProducts.find(p => p.id == id)?.nombre : '';
       return String(delCatalogo || item['nombre'] || '').trim();
     }).filter(Boolean);
+    if (nombres.length > 2) return 'Varios';
     if (nombres.length) return nombres.join(' + ');
   }
   return '';

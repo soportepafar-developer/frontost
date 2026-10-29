@@ -234,7 +234,7 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
       this.form.get('clasificacion')?.enable({ emitEvent: false });
       const actual = this.form.get('clasificacion')?.value;
       if (!actual || actual === 'Servicio') {
-        this.form.get('clasificacion')?.setValue('Productos');
+        this.form.get('clasificacion')?.setValue('Producto');
       }
     } else {
       this.form.get('clasificacion')?.enable({ emitEvent: false });
@@ -264,12 +264,12 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
     }
     if (this.ambito === 'producto') {
       return [
-        { valor: 'Productos', etiqueta: 'Producto' },
+        { valor: 'Producto', etiqueta: 'Producto' },
         { valor: 'Proyecto', etiqueta: 'Proyecto' }
       ];
     }
     return [
-      { valor: 'Productos', etiqueta: 'Producto' },
+      { valor: 'Producto', etiqueta: 'Producto' },
       { valor: 'Servicio', etiqueta: 'Servicio' },
       { valor: 'Proyecto', etiqueta: 'Proyecto' }
     ];

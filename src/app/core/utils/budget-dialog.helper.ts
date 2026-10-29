@@ -2,7 +2,7 @@ import { Budget, Parts } from '../models/Cost/budge';
 import { Asset } from '../models/Cost/asset';
 import { Product } from '../models/Cost/product';
 import { calculateBudgetTotals, costoHoraMaquina, normalizeBudget } from './budget-calculator';
-import { calculateMultiItemTotals, hidratarLineas, nombresDeLineas } from './budget-items';
+import { calculateMultiItemTotals, hidratarLineas, nombresDeLineas, normalizarClasificacion } from './budget-items';
 import Swal from 'sweetalert2';
 
 export interface ClientModalData {
@@ -169,10 +169,14 @@ export function showBudgetStudyModal(
     }
     const maqCost = (maqRate || 0) * (totalMinutos / 60);
     const tiempoTxt = (baseH > 0 || baseMin > 0) ? `${h}h ${min}m` : '-';
+    const cleanNombre = (p.nombre || 'Pieza').replace(/"/g, '&quot;');
 
     return `
       <tr>
-        <td class="text-start ps-3 fw-medium text-dark">${p.nombre || 'Pieza'} ${cant > 1 ? `<span class="badge bg-secondary bg-opacity-10 text-secondary ms-1">x${cant}</span>` : ''}</td>
+        <td class="text-start ps-3 fw-medium text-dark" style="max-width: 280px;">
+          <div class="text-truncate" title="${cleanNombre}">${p.nombre || 'Pieza'}</div>
+          ${cant > 1 ? `<span class="badge bg-secondary bg-opacity-10 text-secondary" style="font-size: 0.65rem;">x${cant} uds</span>` : ''}
+        </td>
         <td><span class="badge ${tipo === 'Del Inventario' ? 'bg-info bg-opacity-10 text-info' : 'bg-primary bg-opacity-10 text-primary'}" style="font-size: 0.68rem;">${tipo}</span></td>
         <td>${g > 0 ? `${g.toFixed(1)}g` : '-'}</td>
         <td class="text-muted">${tiempoTxt}</td>
@@ -198,32 +202,40 @@ export function showBudgetStudyModal(
   const productosHtml = itemsParaMostrar.map((item, idx) => {
     const itemPiezas = (item.piezas && item.piezas.length > 0) ? item.piezas : (itemsParaMostrar.length === 1 ? (norm.piezas || []) : []);
     const filasPiezas = itemPiezas.map(renderPiezaRow).join('');
+    const itemClasif = normalizarClasificacion(item.clasificacion);
+    const isExpanded = itemsParaMostrar.length === 1 ? true : (idx === 0);
 
     return `
-      <div class="card border border-secondary border-opacity-15 shadow-none mb-3 bg-white overflow-hidden rounded-3">
-        <div class="card-header bg-light bg-opacity-75 py-2 px-3 border-bottom d-flex flex-wrap justify-content-between align-items-center">
+      <div class="card border border-light-subtle rounded-3 shadow-none mb-2 bg-white overflow-hidden">
+        <div class="card-header bg-light bg-opacity-60 py-2 px-3 d-flex flex-wrap justify-content-between align-items-center cursor-pointer item-toggle-header" data-target="drawer-item-${idx}" style="cursor: pointer; user-select: none;">
           <div class="d-flex align-items-center gap-2">
-            <span class="badge ${item.clasificacion === 'Servicio' ? 'bg-success' : 'bg-primary'} bg-opacity-10 ${item.clasificacion === 'Servicio' ? 'text-success' : 'text-primary'} fw-semibold px-2 py-1" style="font-size: 0.7rem;">
-              <i class="ti ${item.clasificacion === 'Servicio' ? 'ti-tools' : 'ti-box'} me-1"></i>${item.clasificacion || 'Producto'}
+            <span class="badge ${itemClasif === 'Servicio' ? 'bg-success' : 'bg-primary'} bg-opacity-10 ${itemClasif === 'Servicio' ? 'text-success' : 'text-primary'} fw-semibold px-2 py-1" style="font-size: 0.7rem;">
+              <i class="ti ${itemClasif === 'Servicio' ? 'ti-tools' : 'ti-box'} me-1"></i>${itemClasif}
             </span>
             <span class="fw-bold text-dark" style="font-size: 0.88rem;">${item.nombre || `Ítem ${idx + 1}`}</span>
-            <span class="badge bg-light text-muted border px-2 py-1" style="font-size: 0.7rem;">
+            <span class="badge bg-light text-muted border px-2 py-0" style="font-size: 0.7rem;">
               ${item.cantidad > 1 ? `${item.cantidad} unidades` : '1 unidad'}
             </span>
           </div>
-          <div class="d-flex align-items-center gap-3 text-muted" style="font-size: 0.72rem;">
-            ${item.margenGanancia ? `<span>Margen: <b class="text-dark">${item.margenGanancia}%</b></span>` : ''}
-            ${item.tasaFallo ? `<span>Merma: <b class="text-danger">${item.tasaFallo}%</b></span>` : ''}
-            ${(item.tiempoSetup || item.tiempoPostProcesado) ? `<span>Setup/Post: <b class="text-dark">${item.tiempoSetup || 0}m / ${item.tiempoPostProcesado || 0}m</b></span>` : ''}
+          <div class="d-flex align-items-center gap-3">
+            <div class="d-none d-sm-flex align-items-center gap-3 text-muted" style="font-size: 0.72rem;">
+              ${item.margenGanancia ? `<span>Margen: <b class="text-dark">${item.margenGanancia}%</b></span>` : ''}
+              ${item.tasaFallo ? `<span>Merma: <b class="text-danger">${item.tasaFallo}%</b></span>` : ''}
+              ${(item.tiempoSetup || item.tiempoPostProcesado) ? `<span>Setup/Post: <b class="text-dark">${item.tiempoSetup || 0}m / ${item.tiempoPostProcesado || 0}m</b></span>` : ''}
+            </div>
+            <button type="button" class="btn btn-sm btn-white border py-0 px-2 text-primary d-flex align-items-center gap-1 shadow-none" style="font-size: 0.72rem; pointer-events: none;">
+              <span>${itemPiezas.length} ${itemPiezas.length === 1 ? 'pieza' : 'piezas'}</span>
+              <i class="ti ${isExpanded ? 'ti-chevron-up' : 'ti-chevron-down'} chevron-icon-${idx}"></i>
+            </button>
           </div>
         </div>
-        <div class="card-body p-0">
+        <div id="drawer-item-${idx}" class="item-drawer ${isExpanded ? '' : 'd-none'} border-top border-light">
           ${filasPiezas ? `
             <div class="table-responsive">
               <table class="table table-sm table-hover align-middle mb-0 text-center" style="font-size: 0.75rem;">
-                <thead class="table-light text-muted" style="font-size: 0.7rem;">
+                <thead class="table-light text-muted" style="font-size: 0.68rem; background-color: #fafbfc;">
                   <tr>
-                    <th class="text-start ps-3 py-1 fw-semibold">Pieza / Insumo</th>
+                    <th class="text-start ps-3 py-1 fw-semibold" style="width: 38%;">Pieza / Insumo</th>
                     <th class="py-1 fw-semibold">Tipo</th>
                     <th class="py-1 fw-semibold">Gramos</th>
                     <th class="py-1 fw-semibold">Tiempo</th>
@@ -237,7 +249,7 @@ export function showBudgetStudyModal(
               </table>
             </div>
           ` : `
-            <div class="text-muted text-center py-2 fst-italic" style="font-size: 0.72rem;">
+            <div class="text-muted text-center py-2 fst-italic bg-light bg-opacity-25" style="font-size: 0.72rem;">
               <i class="ti ti-info-circle me-1"></i>Ítem directo sin piezas desglosadas
             </div>
           `}
@@ -259,7 +271,7 @@ export function showBudgetStudyModal(
               <div class="card-body px-3 py-2 text-start">
                 <div class="d-flex justify-content-between border-bottom border-secondary border-opacity-10 py-1">
                   <span class="text-muted" style="font-size: 0.8rem;">Clasificación:</span>
-                  <span class="fw-medium text-dark">${norm.clasificacion || ''}</span>
+                  <span class="fw-medium text-dark">${normalizarClasificacion(norm.clasificacion)}</span>
                 </div>
                 <div class="d-flex justify-content-between border-bottom border-secondary border-opacity-10 py-1">
                   <span class="text-muted" style="font-size: 0.8rem;">Nro. de Orden:</span>
@@ -407,5 +419,25 @@ export function showBudgetStudyModal(
     width: '950px',
     showCloseButton: true,
     showConfirmButton: false,
+    didOpen: (popup) => {
+      const headers = popup.querySelectorAll('.item-toggle-header');
+      headers.forEach(header => {
+        header.addEventListener('click', () => {
+          const targetId = header.getAttribute('data-target');
+          if (!targetId) return;
+          const drawer = popup.querySelector(`#${targetId}`);
+          if (drawer) {
+            const isHidden = drawer.classList.contains('d-none');
+            drawer.classList.toggle('d-none', !isHidden);
+            const idx = targetId.replace('drawer-item-', '');
+            const icon = popup.querySelector(`.chevron-icon-${idx}`);
+            if (icon) {
+              icon.classList.toggle('ti-chevron-up', isHidden);
+              icon.classList.toggle('ti-chevron-down', !isHidden);
+            }
+          }
+        });
+      });
+    }
   });
 }

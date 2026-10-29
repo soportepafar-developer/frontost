@@ -12,7 +12,7 @@ import { ClientService } from '../../../../../core/services/cost/client.service'
 import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
 import { calculateBudgetTotals, normalizeBudget, resolverCapacidadHorasMaquina } from '../../../../../core/utils/budget-calculator';
-import { calculateMultiItemTotals, hidratarLineas } from '../../../../../core/utils/budget-items';
+import { calculateMultiItemTotals, hidratarLineas, normalizarClasificacion } from '../../../../../core/utils/budget-items';
 import {
   parseCedula,
   resolveProductDescription,
@@ -107,6 +107,10 @@ export class BudgetComponent implements OnInit {
 
   getDescripcionOProducto(row: Budget): string {
     return resolveProductDescription(row, this.allProducts);
+  }
+
+  normalizarClasificacion(val?: string | null): string {
+    return normalizarClasificacion(val);
   }
 
   getBudgets() {
