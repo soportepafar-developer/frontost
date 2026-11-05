@@ -1,10 +1,11 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { Rol } from '../../../../core/models/rol';
 import { RolesPermissionsService } from '../../../../core/services/roles-permissions.service';
 import Swal from 'sweetalert2';
+import { formatRoleDisplay } from '../../../../core/utils/role-formatter.helper';
 
 @Component({
   selector: 'app-role',
@@ -15,15 +16,17 @@ import Swal from 'sweetalert2';
 export class RoleComponent implements OnInit {
   private rolesService = inject(RolesPermissionsService);
   private router = inject(Router);
+  private cdr = inject(ChangeDetectorRef);
 
+  loading = false;
   allRoles: Rol[] = [];
   filteredRoles: Rol[] = [];
   paginatedRoles: Rol[] = [];
-  
+
   Math = Math;
   selectedRow: Rol | null = null;
   searchTerm = '';
-  
+
   // Sorting
   sortColumn = 'descripcion';
   sortAscending = true;
@@ -39,11 +42,19 @@ export class RoleComponent implements OnInit {
   }
 
   getRoles() {
+    this.loading = true;
     this.rolesService.getRoles().subscribe({
       next: (data) => {
-        this.allRoles = data;
+        this.loading = false;
+        this.allRoles = data || [];
         this.filteredRoles = [...this.allRoles];
         this.applyFilterAndPagination();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.loading = false;
+        console.error('Error al cargar roles:', err);
+        this.cdr.detectChanges();
       }
     });
   }
@@ -70,21 +81,27 @@ export class RoleComponent implements OnInit {
     return 'ti-arrows-sort text-muted opacity-50';
   }
 
+  getRoleFriendlyName(descripcion: string): string {
+    return formatRoleDisplay(descripcion);
+  }
+
   applyFilterAndPagination() {
     const query = this.searchTerm.toLowerCase().trim();
     if (!query) {
       this.filteredRoles = [...this.allRoles];
     } else {
-      this.filteredRoles = this.allRoles.filter(r => 
-        (r.descripcion && r.descripcion.toLowerCase().includes(query))
-      );
+      this.filteredRoles = this.allRoles.filter(r => {
+        const raw = (r.descripcion || '').toLowerCase();
+        const friendly = formatRoleDisplay(r.descripcion || '').toLowerCase();
+        return raw.includes(query) || friendly.includes(query);
+      });
     }
 
     // Ordenamiento
     this.filteredRoles.sort((a, b) => {
       let valA = a[this.sortColumn as keyof Rol];
       let valB = b[this.sortColumn as keyof Rol];
-      
+
       if (typeof valA === 'string') valA = valA.toLowerCase();
       if (typeof valB === 'string') valB = valB.toLowerCase();
 
@@ -99,7 +116,7 @@ export class RoleComponent implements OnInit {
     // Paginación
     this.totalPages = Math.ceil(this.filteredRoles.length / this.pageSize) || 1;
     this.totalPagesArray = Array.from({ length: this.totalPages }, (_, i) => i + 1);
-    
+
     if (this.currentPage > this.totalPages) {
       this.currentPage = this.totalPages;
     }
@@ -121,6 +138,7 @@ export class RoleComponent implements OnInit {
   }
 
   openAdd() {
+    localStorage.removeItem('security_edit_role');
     this.router.navigate(['/roles/add-role']);
   }
 
@@ -131,9 +149,10 @@ export class RoleComponent implements OnInit {
   }
 
   onDelete(id: number, descripcion: string) {
+    const friendly = this.getRoleFriendlyName(descripcion);
     Swal.fire({
       title: '¿Eliminar Rol?',
-      text: `¿Estás seguro de que deseas eliminar el rol "${descripcion}"?`,
+      text: `¿Estás seguro de que deseas eliminar el rol "${friendly}"?`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#dc2626',

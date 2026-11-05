@@ -3,6 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { SelectOption } from '../models/select-option';
 import { firstValueFrom } from 'rxjs';
+import { formatRoleDisplay } from '../utils/role-formatter.helper';
+import { extractRolesArray } from './roles-permissions.service';
 
 @Injectable({
   providedIn: 'root'
@@ -39,24 +41,26 @@ export class CommonsService {
   }
   async getAllRoles(): Promise<Array<SelectOption>> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const resp: any = await firstValueFrom(this.http.get(`${environment.apiUrl}/rol/list`));
-      const temp = Array.isArray(resp) && resp.length > 0 ? (Array.isArray(resp[0]) ? resp[0] : resp) : [];
+      const resp = await firstValueFrom(this.http.get(`${environment.apiUrl}/rol/list`));
+      const roles = extractRolesArray(resp);
       
       const filtered: SelectOption[] = [];
       const addedLabels = new Set<string>();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      temp.forEach((item: any) => {
-        const rawVal = String(item.descripcion || item.name || item.rol || '').trim();
+      roles.forEach((item) => {
+        const rawVal = item.descripcion.trim();
         const upper = rawVal.toUpperCase();
 
         if (upper.includes('ADMIN') && !addedLabels.has('Administrador')) {
           filtered.push(new SelectOption(rawVal, 'Administrador'));
           addedLabels.add('Administrador');
-        } else if ((upper.includes('REGULAR') || upper.includes('USER')) && !addedLabels.has('Regular')) {
-          filtered.push(new SelectOption(rawVal, 'Regular'));
-          addedLabels.add('Regular');
+        } else if ((upper.includes('OPERADOR') || upper.includes('REGULAR') || upper.includes('USER')) && !addedLabels.has('Operador')) {
+          filtered.push(new SelectOption(rawVal, 'Operador'));
+          addedLabels.add('Operador');
+        } else if (rawVal && !addedLabels.has(rawVal)) {
+          // Para cualquier otro rol que se agregue en la BD
+          filtered.push(new SelectOption(rawVal, formatRoleDisplay(rawVal)));
+          addedLabels.add(rawVal);
         }
       });
 
@@ -64,12 +68,12 @@ export class CommonsService {
         return filtered;
       }
     } catch (e) {
-      console.error('Error fetching roles:', e);
+      console.error('Error fetching roles in CommonsService:', e);
     }
 
     return [
       new SelectOption('ROLE_ADMINISTRADOR', 'Administrador'),
-      new SelectOption('ROLE_REGULAR', 'Regular')
+      new SelectOption('ROLE_OPERADOR', 'Operador')
     ];
   }
 }

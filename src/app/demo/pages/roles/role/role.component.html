@@ -42,35 +42,46 @@
               </tr>
             </thead>
             <tbody>
-              @for (row of paginatedRoles; track row.id) {
-                <tr 
-                  (click)="selectedRow = selectedRow === row ? null : row"
-                  [class.table-primary]="selectedRow?.id === row.id"
-                  style="cursor: pointer;">
-                  <td>{{ row.descripcion }}</td>
-                  <td class="text-center" (click)="$event.stopPropagation()">
-                    <div class="btn-group btn-group-sm">
-                      <button 
-                        class="btn btn-icon btn-light-primary" 
-                        (click)="onEdit(row)" 
-                        title="Editar">
-                        <i class="ti ti-edit fs-5"></i>
-                      </button>
-                      <button 
-                        class="btn btn-icon btn-light-danger" 
-                        (click)="onDelete(row.id!, row.descripcion)" 
-                        title="Eliminar">
-                        <i class="ti ti-trash fs-5"></i>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              } @empty {
+              @if (loading) {
                 <tr>
                   <td colspan="2" class="text-center py-4 text-muted">
-                    No se encontraron roles que coincidan con la búsqueda.
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                    Cargando roles...
                   </td>
                 </tr>
+              } @else {
+                @for (row of paginatedRoles; track row.id ?? $index) {
+                  <tr 
+                    (click)="selectedRow = selectedRow === row ? null : row"
+                    [class.table-primary]="selectedRow !== null && selectedRow === row"
+                    style="cursor: pointer;">
+                    <td>
+                      <span class="fw-medium text-dark">{{ getRoleFriendlyName(row.descripcion) }}</span>
+                    </td>
+                    <td class="text-center" (click)="$event.stopPropagation()">
+                      <div class="btn-group btn-group-sm">
+                        <button 
+                          class="btn btn-icon btn-light-primary" 
+                          (click)="onEdit(row)" 
+                          title="Editar">
+                          <i class="ti ti-edit fs-5"></i>
+                        </button>
+                        <button 
+                          class="btn btn-icon btn-light-danger" 
+                          (click)="onDelete(row.id!, row.descripcion)" 
+                          title="Eliminar">
+                          <i class="ti ti-trash fs-5"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="2" class="text-center py-4 text-muted">
+                      No se encontraron roles que coincidan con la búsqueda.
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>

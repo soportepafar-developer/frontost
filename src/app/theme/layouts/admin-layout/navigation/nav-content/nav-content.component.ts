@@ -107,7 +107,33 @@ export class NavContentComponent implements OnInit {
     if (isAdmin) {
       this.navigations = NavigationItems;
     } else {
-      this.navigations = NavigationItems.filter(group => group.id !== 'admin');
+      // Perfil Operador:
+      this.navigations = NavigationItems
+        .filter(group => group.id !== 'admin')
+        .map(group => {
+          if (group.id !== 'modulos' || !group.children) {
+            return group;
+          }
+
+          const filteredModules = group.children
+            // 1. Ocultar bloque de Costos y Precios al Operador
+            .filter(subgroup => subgroup.id !== 'costos-group')
+            .map(subgroup => {
+              // 2. En Inventario, el Operador solo consulta el Stock de existencias
+              if (subgroup.id === 'almacen-group' && subgroup.children) {
+                return {
+                  ...subgroup,
+                  children: subgroup.children.filter(item => item.id === 'stock')
+                };
+              }
+              return subgroup;
+            });
+
+          return {
+            ...group,
+            children: filteredModules
+          };
+        });
     }
     this.navigation = this.navigations;
   }

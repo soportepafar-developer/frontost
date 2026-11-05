@@ -58,6 +58,24 @@ export class AuthService extends HttpService {
     return !this.isAdmin;
   }
 
+  public get isOperador(): boolean {
+    const user = this.currentUser;
+    if (!user || !user.roles) return false;
+
+    const roles = Array.isArray(user.roles) ? user.roles : [user.roles];
+    return roles.some((r: unknown) => {
+      let val = '';
+      if (typeof r === 'string') {
+        val = r;
+      } else if (r && typeof r === 'object') {
+        const rec = r as Record<string, unknown>;
+        val = String(rec['rol'] || rec['name'] || rec['value'] || '');
+      }
+      const upper = val.toUpperCase();
+      return upper.includes('OPERADOR') || upper.includes('REGULAR') || upper.includes('USER');
+    });
+  }
+
 
   /**
  * Save user data to localstorage

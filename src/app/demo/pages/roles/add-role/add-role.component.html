@@ -16,20 +16,20 @@
         <form [formGroup]="form">
           
           <div class="row g-3">
-            <div class="col-12">
-              <label class="form-label">Descripción <span class="text-danger">*</span></label>
+            <div class="col-md-6 col-12">
+              <label class="form-label">Nombre del Rol <span class="text-danger">*</span></label>
               <input 
                 type="text" 
                 class="form-control" 
                 formControlName="description" 
-                placeholder="Ej. Administrador, Usuario..."
+                placeholder="Ej. Operador, Administrador..."
                 maxlength="250"
                 [class.is-invalid]="submitted && f['description'].errors">
               
               @if (submitted && f['description'].errors) {
                 <div class="invalid-feedback d-block">
                   @if (f['description'].errors['required']) {
-                    Ingrese la descripción del rol.
+                    Ingrese el nombre del rol.
                   }
                 </div>
               }

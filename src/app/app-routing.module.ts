@@ -7,6 +7,7 @@ import { AdminLayout } from './theme/layouts/admin-layout/admin-layout.component
 import { GuestLayoutComponent } from './theme/layouts/guest-layout/guest-layout.component';
 import { authGuard } from './core/guards/auth.guard';
 import { pendingChangesGuard } from './core/guards/pending-changes.guard';
+import { roleGuard } from './core/guards/role.guard';
 
 const routes: Routes = [
   {
@@ -43,10 +44,14 @@ const routes: Routes = [
       // Cost Modules
       {
         path: 'configs',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/configs/config/config.component').then((c) => c.ConfigComponent)
       },
       {
         path: 'configs/add-config',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/configs/add-config/add-config.component').then((c) => c.AddConfigComponent),
         canDeactivate: [pendingChangesGuard]
       },
@@ -61,30 +66,42 @@ const routes: Routes = [
       },
       {
         path: 'configuracion',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/configuracion/configuracion-catalogo.component').then((c) => c.ConfiguracionCatalogoComponent)
       },
       {
         path: 'configuracion/add-family',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/codings/add-family/add-family.component').then((c) => c.AddFamilyComponent),
         canDeactivate: [pendingChangesGuard]
       },
       {
         path: 'configuracion/add-tecnologia',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/configuracion/add-tecnologia.component').then((c) => c.AddTecnologiaComponent),
         canDeactivate: [pendingChangesGuard]
       },
       {
         path: 'configuracion/add-material',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/configuracion/add-material.component').then((c) => c.AddMaterialComponent),
         canDeactivate: [pendingChangesGuard]
       },
       {
         path: 'configuracion/add-marca',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/configuracion/add-catalogo-simple.component').then((c) => c.AddCatalogoSimpleComponent),
         canDeactivate: [pendingChangesGuard]
       },
       {
         path: 'configuracion/add-color',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/configuracion/add-catalogo-simple.component').then((c) => c.AddCatalogoSimpleComponent),
         canDeactivate: [pendingChangesGuard]
       },
@@ -101,19 +118,27 @@ const routes: Routes = [
       // Security Modules
       {
         path: 'roles',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/roles/role/role.component').then((c) => c.RoleComponent)
       },
       {
         path: 'roles/add-role',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/roles/add-role/add-role.component').then((c) => c.AddRoleComponent),
         canDeactivate: [pendingChangesGuard]
       },
       {
         path: 'users',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/users/user/user.component').then((c) => c.UserComponent)
       },
       {
         path: 'users/add-user',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/users/add-user/add-user.component').then((c) => c.AddUserComponent),
         canDeactivate: [pendingChangesGuard]
       },
@@ -124,24 +149,34 @@ const routes: Routes = [
       },
       {
         path: 'fixes',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/fixes/fixe/fixe.component').then((c) => c.FixeComponent)
       },
       {
         path: 'fixes/add-fixe',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/fixes/add-fixe/add-fixe.component').then((c) => c.AddFixeComponent),
         canDeactivate: [pendingChangesGuard]
       },
       {
         path: 'assets',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/assets/asset/asset.component').then((c) => c.AssetComponent)
       },
       {
         path: 'assets/add-asset',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/assets/add-asset/add-asset.component').then((c) => c.AddAssetComponent),
         canDeactivate: [pendingChangesGuard]
       },
       {
         path: 'pricings',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/pricings/pricing/pricing.component').then((c) => c.PricingComponent)
       },
       {
@@ -168,19 +203,27 @@ const routes: Routes = [
       },
       {
         path: 'suppliers',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/suppliers/supplier-list/supplier-list.component').then((c) => c.SupplierListComponent)
       },
       {
         path: 'suppliers/add',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/suppliers/add-supplier/add-supplier.component').then((c) => c.AddSupplierComponent),
         canDeactivate: [pendingChangesGuard]
       },
       {
         path: 'purchases',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/purchases/purchase-list/purchase-list.component').then((c) => c.PurchaseListComponent)
       },
       {
         path: 'purchases/add',
+        canActivate: [roleGuard],
+        data: { roles: ['ROLE_ADMINISTRADOR'] },
         loadComponent: () => import('./demo/pages/cost/purchases/add-purchase/add-purchase.component').then((c) => c.AddPurchaseComponent),
         canDeactivate: [pendingChangesGuard]
       },

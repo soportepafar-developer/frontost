@@ -62,7 +62,7 @@ export class AddUserComponent implements OnInit, OnDestroy, ComponentCanDeactiva
           console.error('Error cargando roles', e);
           this.roles = [
             new SelectOption('ROLE_ADMINISTRADOR', 'Administrador'),
-            new SelectOption('ROLE_REGULAR', 'Regular')
+            new SelectOption('ROLE_OPERADOR', 'Operador')
           ];
         })
       ]);
@@ -252,8 +252,8 @@ export class AddUserComponent implements OnInit, OnDestroy, ComponentCanDeactiva
     if (valUpper.includes('ADMIN')) {
       return currentRoles.some(r => r.includes('ADMIN'));
     }
-    if (valUpper.includes('REGULAR') || valUpper.includes('USER')) {
-      return currentRoles.some(r => r.includes('REGULAR') || r.includes('USER'));
+    if (valUpper.includes('OPERADOR') || valUpper.includes('REGULAR') || valUpper.includes('USER')) {
+      return currentRoles.some(r => r.includes('OPERADOR') || r.includes('REGULAR') || r.includes('USER'));
     }
     return currentRoles.includes(valUpper);
   } 

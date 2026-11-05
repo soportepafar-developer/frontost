@@ -7,6 +7,7 @@ import { RolesPermissionsService } from '../../../../core/services/roles-permiss
 import Swal from 'sweetalert2';
 import { ComponentCanDeactivate } from '../../../../core/guards/pending-changes.guard';
 import { validarCamposObligatorios } from '../../../../core/utils/form-validation.helper';
+import { formatRoleDisplay, formatRoleForDb } from '../../../../core/utils/role-formatter.helper';
 
 @Component({
   selector: 'app-add-role',
@@ -30,6 +31,10 @@ export class AddRoleComponent implements OnInit, ComponentCanDeactivate {
 
   get f() { return this.form.controls; }
 
+  get previewRoleDb(): string {
+    return formatRoleForDb(this.f['description']?.value || '');
+  }
+
   ngOnInit(): void {
     this.setValues();
   }
@@ -43,10 +48,20 @@ export class AddRoleComponent implements OnInit, ComponentCanDeactivate {
   setValues() {
     const stored = localStorage.getItem('security_edit_role');
     if (stored) {
-      const data: Rol = JSON.parse(stored);
-      if (data && data.id && data.id > 0) {
-        this.f['description'].setValue(data.descripcion);
-        this.id = data.id;
+      try {
+        const data = JSON.parse(stored);
+        if (data) {
+          const rawDesc = data.descripcion || data.Descripcion || data.rol || data.Rol || data.nombre || data.name || '';
+          if (rawDesc) {
+            this.f['description'].setValue(formatRoleDisplay(rawDesc));
+          }
+          const rawId = data.id ?? data.Id ?? data.ID ?? data.id_rol ?? data.rol_id ?? data.idRol;
+          if (rawId !== undefined && rawId !== null && !isNaN(Number(rawId)) && Number(rawId) > 0) {
+            this.id = Number(rawId);
+          }
+        }
+      } catch (err) {
+        console.error('Error al recuperar rol para editar:', err);
       }
     }
   }
@@ -60,10 +75,13 @@ export class AddRoleComponent implements OnInit, ComponentCanDeactivate {
     this.loading = true;
 
     const rol: Rol = {
-      id: this.id > 0 ? this.id : 0,
-      descripcion: this.f['description'].value,
-      statusId: 1
+      descripcion: formatRoleForDb(this.f['description'].value),
+      idStatus: 1,
+      idempresa: 1
     };
+    if (this.id > 0) {
+      rol.id = this.id;
+    }
 
     const request = this.id === 0 
       ? this.rolesService.createRole(rol)

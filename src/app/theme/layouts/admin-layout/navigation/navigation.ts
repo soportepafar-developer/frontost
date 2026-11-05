@@ -55,17 +55,15 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'setting',
         breadcrumbs: false
       },
-      /* Comentado por el momento
-      {
-        id: 'roles',
-        title: 'Roles de Seguridad',
-        type: 'item',
-        classes: 'nav-item',
-        url: '/roles',
-        icon: 'lock',
-        breadcrumbs: false
-      },
-      */
+      // {
+      //   id: 'roles',
+      //   title: 'Roles de Seguridad',
+      //   type: 'item',
+      //   classes: 'nav-item',
+      //   url: '/roles',
+      //   icon: 'lock',
+      //   breadcrumbs: false
+      // },
       {
         id: 'users',
         title: 'Usuarios',
