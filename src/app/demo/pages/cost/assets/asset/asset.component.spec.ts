@@ -72,4 +72,92 @@ describe('AssetComponent', () => {
     } as unknown as Asset;
     expect(component.calcularDepreciacionAnual(asset)).toBe(0);
   });
+
+  it('should filter fixed assets by technology when under Equipos de fabricacion', () => {
+    component.activeTab = 'fijo';
+    component.allAssets = [
+      { id: 1, nombre: 'Bambu Lab X1', tipo: 'Fijo', categoria: 'Equipos de fabricación', tecnologia: 'FDM', costoInicial: 1000, vidaUtil: 5 } as Asset,
+      { id: 2, nombre: 'Anycubic Photon', tipo: 'Fijo', categoria: 'Equipos de fabricación', tecnologia: 'SLA', costoInicial: 500, vidaUtil: 3 } as Asset
+    ];
+    component.selectedCategory = 'Equipos de fabricación';
+    expect(component.esCategoriaFabricacion()).toBeTrue();
+
+    component.selectedTecnologia = 'FDM';
+    component.applyFilterAndPagination();
+    expect(component.filteredAssets.length).toBe(1);
+    expect(component.filteredAssets[0].nombre).toBe('Bambu Lab X1');
+  });
+
+  it('should filter materials by technology and brand', () => {
+    component.activeTab = 'material';
+    component.allAssets = [
+      { id: 10, nombre: 'PLA Blanco', tipo: 'Material', categoria: 'Filamento', marca: 'eSun', costoInicial: 20, cantidad: 5 } as Asset,
+      { id: 11, nombre: 'PLA Gris', tipo: 'Material', categoria: 'Filamento', marca: 'Bambu Lab', costoInicial: 25, cantidad: 3 } as Asset,
+      { id: 12, nombre: 'Resina Estándar', tipo: 'Material', categoria: 'Resina', marca: 'Anycubic', costoInicial: 35, cantidad: 2 } as Asset
+    ];
+
+    component.selectedTecnologia = 'FDM';
+    component.selectedMarca = 'eSun';
+    component.applyFilterAndPagination();
+
+    expect(component.filteredAssets.length).toBe(1);
+    expect(component.filteredAssets[0].nombre).toBe('PLA Blanco');
+  });
+
+  it('should reset all filters on clearFilters()', () => {
+    component.searchTerm = 'bambu';
+    component.selectedCategory = 'Filamento';
+    component.selectedTecnologia = 'FDM';
+    component.selectedMarca = 'Bambu Lab';
+
+    component.clearFilters();
+
+    expect(component.searchTerm).toBe('');
+    expect(component.selectedCategory).toBeNull();
+    expect(component.selectedTecnologia).toBeNull();
+    expect(component.selectedMarca).toBeNull();
+  });
+
+  it('should dynamically cascade brand options when technology changes', () => {
+    component.allAssets = [
+      { id: 10, nombre: 'PLA Blanco', tipo: 'Material', categoria: 'Filamento', marca: 'eSun' } as Asset,
+      { id: 11, nombre: 'PLA Gris', tipo: 'Material', categoria: 'Filamento', marca: 'Bambu Lab' } as Asset,
+      { id: 12, nombre: 'Resina Estándar', tipo: 'Material', categoria: 'Resina', marca: 'Anycubic' } as Asset
+    ];
+    component.marcasList = ['Anycubic', 'Bambu Lab', 'eSun'];
+
+    // Con FDM, solo deben aparecer Bambu Lab y eSun
+    component.selectedTecnologia = 'FDM';
+    component.onTecnologiaChange();
+    expect(component.marcasFiltradasList).toEqual(['Bambu Lab', 'eSun']);
+
+    // Si estaba seleccionada 'Anycubic' (SLA) y cambiamos a FDM, debe resetearse selectedMarca
+    component.selectedMarca = 'Anycubic';
+    component.selectedTecnologia = 'FDM';
+    component.actualizarOpcionesFiltros();
+    expect(component.selectedMarca).toBeNull();
+  });
+
+  it('should dynamically cascade categories and technologies together', () => {
+    component.activeTab = 'material';
+    component.allAssets = [
+      { id: 10, nombre: 'PLA Blanco', tipo: 'Material', categoria: 'Filamento', marca: 'eSun', tecnologia: 'FDM' } as Asset,
+      { id: 12, nombre: 'Resina Estándar', tipo: 'Material', categoria: 'Resina', marca: 'Anycubic', tecnologia: 'SLA' } as Asset
+    ];
+    component.tecnologiasList = [
+      { id: 1, codigo: 'FDM', nombre: 'Filamento' },
+      { id: 2, codigo: 'SLA', nombre: 'Resina' }
+    ];
+
+    // Al seleccionar SLA, solo debe aparecer la categoría 'Resina'
+    component.selectedTecnologia = 'SLA';
+    component.onTecnologiaChange();
+    expect(component.categoriasList).toEqual(['Resina']);
+
+    // Al cambiar la categoría a 'Filamento', la tecnología SLA debe resetearse o actualizarse
+    component.selectedCategory = 'Filamento';
+    component.onCategoryChange();
+    expect(component.tecnologiasFiltradasList.map(t => t.codigo)).toEqual(['FDM']);
+    expect(component.selectedTecnologia).toBeNull();
+  });
 });

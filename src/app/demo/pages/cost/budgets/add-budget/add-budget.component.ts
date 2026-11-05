@@ -19,6 +19,7 @@ import { ClientService } from '../../../../../core/services/cost/client.service'
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import Swal from 'sweetalert2';
+import { validarCamposObligatorios } from '../../../../../core/utils/form-validation.helper';
 import { calculateBudgetTotals } from '../../../../../core/utils/budget-calculator';
 import {
   AssetCatalog,
@@ -947,8 +948,7 @@ export class AddBudgetComponent implements OnInit, ComponentCanDeactivate {
       return;
     }
 
-    if (this.form.invalid) {
-      Swal.fire('Error', 'Complete los datos obligatorios del presupuesto.', 'error');
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
 

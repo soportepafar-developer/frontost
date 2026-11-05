@@ -6,6 +6,7 @@ import { CatalogConfigService } from '../../../../core/services/cost/catalog-con
 import { CatalogoSimple } from '../../../../core/models/Cost/catalog-config';
 import { ComponentCanDeactivate } from '../../../../core/guards/pending-changes.guard';
 import Swal from 'sweetalert2';
+import { validarCamposObligatorios } from '../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-add-catalogo-simple',
@@ -55,7 +56,7 @@ export class AddCatalogoSimpleComponent implements OnInit, ComponentCanDeactivat
 
   onSubmit() {
     this.submitted = true;
-    if (this.form.invalid) {
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
     this.loading = true;

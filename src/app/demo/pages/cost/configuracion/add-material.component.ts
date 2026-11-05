@@ -7,6 +7,7 @@ import { CatalogConfigService } from '../../../../core/services/cost/catalog-con
 import { MaterialCatalogo, TecnologiaCatalogo } from '../../../../core/models/Cost/catalog-config';
 import { ComponentCanDeactivate } from '../../../../core/guards/pending-changes.guard';
 import Swal from 'sweetalert2';
+import { validarCamposObligatorios } from '../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-add-material',
@@ -54,7 +55,7 @@ export class AddMaterialComponent implements OnInit, ComponentCanDeactivate {
 
   onSubmit() {
     this.submitted = true;
-    if (this.form.invalid) {
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
     this.loading = true;

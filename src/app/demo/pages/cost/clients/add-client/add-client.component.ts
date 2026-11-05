@@ -7,6 +7,7 @@ import { ClientService } from '../../../../../core/services/cost/client.service'
 import { Client } from '../../../../../core/models/Cost/client';
 import Swal from 'sweetalert2';
 import { ComponentCanDeactivate } from '../../../../../core/guards/pending-changes.guard';
+import { validarCamposObligatorios } from '../../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-add-client',
@@ -82,9 +83,7 @@ export class AddClientComponent implements OnInit, ComponentCanDeactivate {
 
   save() {
     this.submitted = true;
-    this.form.markAllAsTouched();
-    if (this.form.invalid) {
-      Swal.fire('Atención', 'Complete los campos obligatorios.', 'warning');
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
 

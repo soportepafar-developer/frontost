@@ -6,6 +6,7 @@ import { Rol } from '../../../../core/models/rol';
 import { RolesPermissionsService } from '../../../../core/services/roles-permissions.service';
 import Swal from 'sweetalert2';
 import { ComponentCanDeactivate } from '../../../../core/guards/pending-changes.guard';
+import { validarCamposObligatorios } from '../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-add-role',
@@ -52,10 +53,7 @@ export class AddRoleComponent implements OnInit, ComponentCanDeactivate {
 
   onSubmit() {
     this.submitted = true;
-    this.form.markAllAsTouched();
-
-    if (this.form.invalid) {
-      Swal.fire('Error', 'Complete los datos obligatorios del rol.', 'error');
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
 

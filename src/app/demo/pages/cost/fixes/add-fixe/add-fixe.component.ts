@@ -9,6 +9,7 @@ import { FixeService } from '../../../../../core/services/cost/fixe.service';
 import { ProductService } from '../../../../../core/services/cost/product.service';
 import Swal from 'sweetalert2';
 import { ComponentCanDeactivate } from '../../../../../core/guards/pending-changes.guard';
+import { validarCamposObligatorios } from '../../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-add-fixe',
@@ -238,12 +239,9 @@ export class AddFixeComponent implements OnInit, ComponentCanDeactivate {
 
     if (conceptoControl?.value === 'Otro' && !otroConceptoControl?.value) {
       otroConceptoControl?.setErrors({ required: true });
-      Swal.fire('Error', 'Debe especificar el concepto alternativo.', 'error');
-      return;
     }
 
-    if (this.form.invalid) {
-      Swal.fire('Error', 'Complete los datos obligatorios del costo.', 'error');
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
     

@@ -5,6 +5,7 @@ import { NgSelectModule } from '@ng-select/ng-select';
 import { AssetService } from '../../../../core/services/cost/asset.service';
 import { Asset } from '../../../../core/models/Cost/asset';
 import Swal from 'sweetalert2';
+import { validarCamposObligatorios } from '../../../../core/utils/form-validation.helper';
 
 export interface QuickAssetCreatedEvent {
   asset: Asset;
@@ -143,9 +144,7 @@ export class QuickAssetModalComponent implements OnInit, OnChanges {
   }
 
   save(): void {
-    if (this.assetForm.invalid) {
-      this.assetForm.markAllAsTouched();
-      Swal.fire('Campos requeridos', 'Por favor complete todos los campos obligatorios (*).', 'warning');
+    if (!validarCamposObligatorios(this.assetForm)) {
       return;
     }
 

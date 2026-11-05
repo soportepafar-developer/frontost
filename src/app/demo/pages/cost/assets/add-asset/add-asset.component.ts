@@ -22,6 +22,7 @@ import {
 } from '../../../../../core/utils/asset-form.helper';
 import { listarPolimeros } from '../../../../../core/utils/piece-builder.helper';
 import { ComponentCanDeactivate } from '../../../../../core/guards/pending-changes.guard';
+import { validarCamposObligatorios } from '../../../../../core/utils/form-validation.helper';
 import Swal from 'sweetalert2';
 
 @Component({
@@ -330,10 +331,8 @@ export class AddAssetComponent implements OnInit, ComponentCanDeactivate {
 
   onSubmit() {
     this.submitted = true;
-    this.form.markAllAsTouched();
 
-    if (this.form.invalid) {
-      Swal.fire('Error', 'Complete los datos obligatorios del activo.', 'error');
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
     

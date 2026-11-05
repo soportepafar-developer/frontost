@@ -5,6 +5,7 @@ import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
 import Swal from 'sweetalert2';
 import { ComponentCanDeactivate } from '../../../../core/guards/pending-changes.guard';
+import { validarCamposObligatorios } from '../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-change-pass',
@@ -29,9 +30,7 @@ export class ChangePassComponent implements ComponentCanDeactivate {
 
   async onSubmit() {
     this.submitted = true;
-    this.form.markAllAsTouched();
-
-    if (this.form.invalid) {
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
 

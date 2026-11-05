@@ -6,6 +6,7 @@ import { Family, Subfamily } from '../../../../../core/models/Cost/family';
 import { CodingService } from '../../../../../core/services/cost/coding.service';
 import Swal from 'sweetalert2';
 import { ComponentCanDeactivate } from '../../../../../core/guards/pending-changes.guard';
+import { validarCamposObligatorios } from '../../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-add-family',
@@ -103,9 +104,7 @@ export class AddFamilyComponent implements OnInit, ComponentCanDeactivate {
 
   onSubmit() {
     this.submitted = true;
-    this.form.markAllAsTouched();
-    if (this.form.invalid) {
-      Swal.fire('Error', 'Complete los datos obligatorios.', 'error');
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
 

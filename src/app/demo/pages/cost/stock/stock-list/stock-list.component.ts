@@ -21,6 +21,7 @@ import {
   LineaDesacopleCalculada
 } from '../../../../../core/utils/stock-decouple.helper';
 import Swal from 'sweetalert2';
+import { validarCamposObligatorios } from '../../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-stock-list',
@@ -495,10 +496,12 @@ export class StockListComponent implements OnInit {
 
   saveDecouple() {
     this.decoupleSubmitted = true;
-    this.decoupleForm.markAllAsTouched();
     const prodId = this.decoupleForm.get('producto')?.value;
     const cant = Number(this.decoupleForm.get('cantidadProducto')?.value) || 0;
-    if (this.decoupleForm.invalid || !prodId || cant <= 0) {
+    if (!validarCamposObligatorios(this.decoupleForm)) {
+      return;
+    }
+    if (!prodId || cant <= 0) {
       Swal.fire('Formulario Incompleto', 'Seleccione el producto terminado y la cantidad a desacoplar.', 'warning');
       return;
     }

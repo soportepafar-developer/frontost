@@ -43,6 +43,7 @@ import {
 import { Config } from '../../../../../core/models/Cost/config';
 import { Asset } from '../../../../../core/models/Cost/asset';
 import { Fixe } from '../../../../../core/models/Cost/fixe';
+import { validarCamposObligatorios } from '../../../../../core/utils/form-validation.helper';
 import Swal from 'sweetalert2';
 import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
@@ -90,6 +91,7 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
   costosEliminados: number[] = [];
   imagenSrc: string | null = null;
   ambito = '';
+  isConfirmingAmbitoChange = false;
   tasasFalloPorTecnologia: Record<string, number> = {};
   readonly tasasFalloOpciones = TASAS_FALLO;
 
@@ -132,8 +134,8 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
     this.aplicarAmbito();
     this.route.queryParamMap.subscribe(params => {
       const amb = (params.get('ambito') || '').toLowerCase();
-      if (amb && amb !== this.ambito) {
-        this.aplicarAmbito();
+      if (amb && amb !== this.ambito && !this.isConfirmingAmbitoChange) {
+        this.verificarCambioAmbito(amb);
       }
     });
     this.loadConfigs();
@@ -223,6 +225,74 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
 
   esFamiliaLudico(): boolean {
     return (this.familiaSeleccionada()?.codigo || '').toUpperCase() === 'LUD';
+  }
+
+  verificarCambioAmbito(nuevoAmbito: string) {
+    if (!this.canDeactivate()) {
+      this.isConfirmingAmbitoChange = true;
+      Swal.fire({
+        title: '¿Deseas salir sin guardar?',
+        text: 'Tienes información en el formulario. Si cambias de módulo ahora, se perderán los datos ingresados.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, cambiar',
+        cancelButtonText: 'No, quedarme',
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#4680ff',
+        reverseButtons: true,
+        allowOutsideClick: false,
+        allowEscapeKey: true
+      }).then(result => {
+        this.isConfirmingAmbitoChange = false;
+        if (result.isConfirmed) {
+          this.reiniciarFormulario();
+          this.ambito = nuevoAmbito;
+          this.aplicarAmbito();
+        } else {
+          // Revertir el queryParam en la URL al ámbito previo
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { ambito: this.ambito },
+            queryParamsHandling: 'merge'
+          });
+        }
+      });
+    } else {
+      this.reiniciarFormulario();
+      this.ambito = nuevoAmbito;
+      this.aplicarAmbito();
+    }
+  }
+
+  reiniciarFormulario() {
+    this.piezasPendientes = [];
+    this.costosPendientes = [];
+    this.costosEliminados = [];
+    this.previewSku = '';
+    this.previewCatalogo = '';
+    this.previewCorrelativo = '';
+    this.imagenSrc = null;
+    this.submitted = false;
+    this.tasasFalloPorTecnologia = {};
+    this.form.reset({
+      nombre: '',
+      medida: 'Unidades',
+      descripcion: '',
+      multitecnologia: false,
+      costoTipo: 'Variable',
+      tiempoSetup: '',
+      horasImpresion: 0,
+      minutosImpresion: 0,
+      postProcesado: 0,
+      tasaFallo: TASAS_FALLO[0],
+      margenGanancia: 0,
+      piezaTipo: 'Del Inventario',
+      piezaCantidad: 1,
+      piezaHoras: 0,
+      piezaMinutos: 0
+    });
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
   }
 
   aplicarAmbito() {
@@ -939,19 +1009,19 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
 
     const clasificacion = String(this.form.getRawValue().clasificacion || '');
     const requierePiezas = !clasificacion.toLowerCase().startsWith('serv');
-    if (this.form.invalid || (requierePiezas && this.piezasPendientes.length === 0)) {
-      const invalidFields: string[] = [];
-      if (this.form.get('nombre')?.invalid) invalidFields.push('Nombre');
-      if (this.form.get('clasificacion')?.invalid) invalidFields.push('Tipo');
-      if (this.form.get('familiaId')?.invalid) invalidFields.push('Familia');
-      if (this.form.get('descripcion')?.invalid) invalidFields.push('Descripción');
-      if (requierePiezas && this.piezasPendientes.length === 0) invalidFields.push('Al menos una pieza');
+    const faltaPiezas = requierePiezas && this.piezasPendientes.length === 0;
 
-      const mensaje = invalidFields.length > 0
-        ? `El formulario no se guarda incompleto. Revise: ${invalidFields.join(', ')}.`
-        : 'El formulario no se guarda incompleto. Complete los datos obligatorios.';
+    const esValido = validarCamposObligatorios(this.form);
 
-      Swal.fire('Formulario incompleto', mensaje, 'warning');
+    if (!esValido || faltaPiezas) {
+      if (esValido && faltaPiezas) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Faltan piezas',
+          text: 'El formulario no se guarda incompleto. Debes agregar al menos una pieza antes de guardar.',
+          confirmButtonColor: '#4680ff'
+        });
+      }
       return;
     }
 

@@ -11,6 +11,7 @@ import { SelectOption } from '../../../../core/models/select-option';
 import { NgSelectModule } from '@ng-select/ng-select';
 import Swal from 'sweetalert2';
 import { ComponentCanDeactivate } from '../../../../core/guards/pending-changes.guard';
+import { validarCamposObligatorios } from '../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-add-user',
@@ -295,10 +296,7 @@ export class AddUserComponent implements OnInit, OnDestroy, ComponentCanDeactiva
 
   async onSubmit() {
     this.submitted = true;
-    this.form.markAllAsTouched();
-
-    if (this.form.invalid) {
-      Swal.fire('Error', 'Por favor, revise los campos marcados en rojo.', 'warning');
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
 

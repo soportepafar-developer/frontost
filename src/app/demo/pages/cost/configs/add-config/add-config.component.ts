@@ -7,6 +7,7 @@ import { CapacityResults, Config, Machine } from '../../../../../core/models/Cos
 import { ConfigService } from '../../../../../core/services/cost/config.service';
 import Swal from 'sweetalert2';
 import { ComponentCanDeactivate } from '../../../../../core/guards/pending-changes.guard';
+import { validarCamposObligatorios } from '../../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-add-config',
@@ -209,10 +210,10 @@ export class AddConfigComponent implements OnInit, ComponentCanDeactivate {
 
   onSubmit() {
     this.submitted = true;
-    this.form.markAllAsTouched();
     if (this.form.invalid) {
-      this.activeTab = 'perfil'; // Cambiar a la pestaña de datos requeridos
-      Swal.fire('Error', 'Complete los datos obligatorios del perfil de la empresa.', 'error');
+      this.activeTab = 'perfil';
+    }
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
 

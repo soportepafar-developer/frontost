@@ -6,6 +6,7 @@ import { InventoryService } from '../../../../../core/services/cost/inventory.se
 import { Supplier } from '../../../../../core/models/Cost/inventory';
 import Swal from 'sweetalert2';
 import { ComponentCanDeactivate } from '../../../../../core/guards/pending-changes.guard';
+import { validarCamposObligatorios } from '../../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-add-supplier',
@@ -45,9 +46,7 @@ export class AddSupplierComponent implements OnInit, ComponentCanDeactivate {
 
   save() {
     this.submitted = true;
-    this.form.markAllAsTouched();
-    if (this.form.invalid) {
-      Swal.fire('Formulario Incompleto', 'Por favor ingrese el nombre del proveedor.', 'warning');
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
     this.loading = true;

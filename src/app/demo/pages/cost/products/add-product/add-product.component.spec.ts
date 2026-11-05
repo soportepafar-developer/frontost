@@ -75,4 +75,18 @@ describe('AddProductComponent', () => {
     expect(component.piezasPendientes[0]['horas']).toBe(1);
     expect(component.piezasPendientes[0]['minutos']).toBe(15);
   });
+
+  it('should reset form and pending parts cleanly via reiniciarFormulario()', () => {
+    component.form.patchValue({ nombre: 'Prueba', descripcion: 'Desc' });
+    component.piezasPendientes = [{ id: 1, nombre: 'Pieza 1' }];
+    component.previewSku = 'SKU-123';
+
+    component.reiniciarFormulario();
+
+    expect(component.piezasPendientes.length).toBe(0);
+    expect(component.previewSku).toBe('');
+    expect(component.form.get('nombre')?.value).toBe('');
+    expect(component.form.dirty).toBeFalse();
+    expect(component.canDeactivate()).toBeTrue();
+  });
 });

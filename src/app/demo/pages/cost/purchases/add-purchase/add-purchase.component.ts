@@ -11,6 +11,7 @@ import { Supplier, Purchase } from '../../../../../core/models/Cost/inventory';
 import { QuickAssetModalComponent, QuickAssetCreatedEvent } from '../../../../../theme/shared/components/quick-asset-modal/quick-asset-modal.component';
 import Swal from 'sweetalert2';
 import { ComponentCanDeactivate } from '../../../../../core/guards/pending-changes.guard';
+import { validarCamposObligatorios } from '../../../../../core/utils/form-validation.helper';
 
 export interface MaterialCompraItem {
   activoId: number;
@@ -212,9 +213,7 @@ export class AddPurchaseComponent implements OnInit, ComponentCanDeactivate {
 
   save() {
     this.submitted = true;
-    this.form.markAllAsTouched();
-    if (this.form.invalid) {
-      Swal.fire('Formulario Incompleto', 'Por favor seleccione el proveedor y la fecha de compra.', 'warning');
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
     if (this.materialesCompra().length === 0) {

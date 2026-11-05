@@ -5,7 +5,14 @@ import { Router, RouterModule } from '@angular/router';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { Asset } from '../../../../../core/models/Cost/asset';
 import { AssetService } from '../../../../../core/services/cost/asset.service';
+import { CatalogConfigService } from '../../../../../core/services/cost/catalog-config.service';
+import { TecnologiaCatalogo } from '../../../../../core/models/Cost/catalog-config';
 import { calcularValorTotalActivo } from '../../../../../core/utils/asset-form.helper';
+import {
+  esEquiposFabricacion,
+  tecnologiaDeActivo,
+  materialCompatibleConTecnologia
+} from '../../../../../core/constants/asset-categories';
 
 @Component({
   selector: 'app-asset',
@@ -16,6 +23,7 @@ import { calcularValorTotalActivo } from '../../../../../core/utils/asset-form.h
 export class AssetComponent implements OnInit {
   private router = inject(Router);
   private assetService = inject(AssetService);
+  private catalogConfigService = inject(CatalogConfigService);
 
   private cdr = inject(ChangeDetectorRef);
   loading = true;
@@ -32,7 +40,15 @@ export class AssetComponent implements OnInit {
 
   searchTerm = '';
   selectedCategory: string | null = null;
+  selectedTecnologia: string | null = null;
+  selectedMarca: string | null = null;
+
   categoriasList: string[] = [];
+  tecnologiasList: TecnologiaCatalogo[] = [];
+  tecnologiasFiltradasList: TecnologiaCatalogo[] = [];
+  marcasList: string[] = [];
+  marcasFiltradasList: string[] = [];
+
   currentPage = 1;
   pageSize = 10;
   totalPages = 1;
@@ -43,11 +59,51 @@ export class AssetComponent implements OnInit {
   Math = Math;
 
   ngOnInit(): void {
+    this.cargarCatalogos();
     this.getAssets();
   }
 
-  actualizarCategorias() {
-    const assetsInTab = this.allAssets.filter(item => {
+  cargarCatalogos(): void {
+    this.catalogConfigService.getTecnologias().subscribe({
+      next: (data) => {
+        this.tecnologiasList = data?.length ? data : [
+          { id: 1, codigo: 'FDM', nombre: 'Filamento' },
+          { id: 2, codigo: 'SLA', nombre: 'Resina' }
+        ];
+        this.tecnologiasFiltradasList = [...this.tecnologiasList];
+      },
+      error: () => {
+        this.tecnologiasList = [
+          { id: 1, codigo: 'FDM', nombre: 'Filamento' },
+          { id: 2, codigo: 'SLA', nombre: 'Resina' }
+        ];
+        this.tecnologiasFiltradasList = [...this.tecnologiasList];
+      }
+    });
+
+    this.catalogConfigService.getMarcas().subscribe({
+      next: (data) => {
+        const marcasConfig = (data || []).map(m => m.nombre).filter(Boolean);
+        this.actualizarMarcasDisponibles(marcasConfig);
+      },
+      error: () => {
+        this.actualizarMarcasDisponibles([]);
+      }
+    });
+  }
+
+  actualizarMarcasDisponibles(marcasBase: string[] = []): void {
+    const setMarcas = new Set<string>(marcasBase);
+    this.allAssets.forEach(a => {
+      const m = (a.marca || '').trim();
+      if (m) setMarcas.add(m);
+    });
+    this.marcasList = Array.from(setMarcas).sort((a, b) => a.localeCompare(b));
+    this.actualizarOpcionesFiltros();
+  }
+
+  getAssetsDePestanaActual(): Asset[] {
+    return this.allAssets.filter(item => {
       const tipoLower = item.tipo?.toLowerCase().trim() || '';
       const catLower = item.categoria?.toLowerCase().trim() || '';
 
@@ -59,23 +115,114 @@ export class AssetComponent implements OnInit {
         return (tipoLower === 'circulante' || !item.tipo) && tipoLower !== 'fijo' && tipoLower !== 'material' && !catLower.includes('material') && !catLower.includes('insumo') && !catLower.includes('filamento') && !catLower.includes('resina');
       }
     });
+  }
 
-    const uniqueMap = new Map<string, string>();
-    assetsInTab.forEach(a => {
-      const rawCat = (a.categoria || ((a as unknown as Record<string, unknown>)['Categoria'] as string) || '').trim();
-      if (rawCat) {
-        const key = rawCat.toLowerCase();
-        if (!uniqueMap.has(key)) {
-          const formatted = rawCat.charAt(0).toUpperCase() + rawCat.slice(1);
-          uniqueMap.set(key, formatted);
+  esCategoriaFabricacion(): boolean {
+    return esEquiposFabricacion(this.selectedCategory || '');
+  }
+
+  actualizarOpcionesFiltros(): void {
+    const assetsTab = this.getAssetsDePestanaActual();
+
+    if (this.activeTab !== 'material') {
+      const uniqueMap = new Map<string, string>();
+      assetsTab.forEach(a => {
+        const rawCat = (a.categoria || ((a as unknown as Record<string, unknown>)['Categoria'] as string) || '').trim();
+        if (rawCat) {
+          const key = rawCat.toLowerCase();
+          if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, rawCat.charAt(0).toUpperCase() + rawCat.slice(1));
+          }
+        }
+      });
+      this.categoriasList = Array.from(uniqueMap.values()).sort();
+      this.tecnologiasFiltradasList = [...this.tecnologiasList];
+      return;
+    }
+
+    // --- Pestaña Material: Cascada bidireccional entre Categoría, Tecnología y Marca ---
+
+    // 1. Categorías disponibles (restringidas por tecnología y marca seleccionadas)
+    const catMap = new Map<string, string>();
+    assetsTab.forEach(a => {
+      const coincideTec = !this.selectedTecnologia || materialCompatibleConTecnologia(a, this.selectedTecnologia);
+      const coincideMarca = !this.selectedMarca || (a.marca || '').toLowerCase().trim() === this.selectedMarca.toLowerCase().trim();
+
+      if (coincideTec && coincideMarca) {
+        const rawCat = (a.categoria || ((a as unknown as Record<string, unknown>)['Categoria'] as string) || '').trim();
+        if (rawCat) {
+          const key = rawCat.toLowerCase();
+          if (!catMap.has(key)) {
+            catMap.set(key, rawCat.charAt(0).toUpperCase() + rawCat.slice(1));
+          }
         }
       }
     });
+    this.categoriasList = Array.from(catMap.values()).sort();
+    if (this.selectedCategory && !catMap.has(this.selectedCategory.toLowerCase().trim())) {
+      this.selectedCategory = null;
+    }
 
-    this.categoriasList = Array.from(uniqueMap.values()).sort();
+    // 2. Tecnologías disponibles (restringidas por categoría y marca seleccionadas)
+    const tecValidas = new Set<string>();
+    assetsTab.forEach(a => {
+      const rawCat = (a.categoria || ((a as unknown as Record<string, unknown>)['Categoria'] as string) || '').trim().toLowerCase();
+      const coincideCat = !this.selectedCategory || rawCat === this.selectedCategory.toLowerCase().trim();
+      const coincideMarca = !this.selectedMarca || (a.marca || '').toLowerCase().trim() === this.selectedMarca.toLowerCase().trim();
+
+      if (coincideCat && coincideMarca) {
+        const tec = tecnologiaDeActivo(a);
+        if (tec) tecValidas.add(tec.toUpperCase());
+        if (rawCat.includes('filam') || rawCat === 'fdm') tecValidas.add('FDM');
+        if (rawCat.includes('resin') || rawCat === 'sla') tecValidas.add('SLA');
+      }
+    });
+
+    if (!this.selectedCategory && !this.selectedMarca) {
+      this.tecnologiasFiltradasList = [...this.tecnologiasList];
+    } else {
+      this.tecnologiasFiltradasList = this.tecnologiasList.filter(t => tecValidas.has(t.codigo.toUpperCase()));
+    }
+    if (this.selectedTecnologia && !tecValidas.has(this.selectedTecnologia.toUpperCase())) {
+      this.selectedTecnologia = null;
+    }
+
+    // 3. Marcas disponibles (restringidas por categoría y tecnología seleccionadas)
+    const marcasSet = new Set<string>();
+    assetsTab.forEach(a => {
+      const rawCat = (a.categoria || ((a as unknown as Record<string, unknown>)['Categoria'] as string) || '').trim().toLowerCase();
+      const coincideCat = !this.selectedCategory || rawCat === this.selectedCategory.toLowerCase().trim();
+      const coincideTec = !this.selectedTecnologia || materialCompatibleConTecnologia(a, this.selectedTecnologia);
+
+      if (coincideCat && coincideTec) {
+        const m = (a.marca || '').trim();
+        if (m) marcasSet.add(m);
+      }
+    });
+
+    this.marcasFiltradasList = Array.from(marcasSet).sort((a, b) => a.localeCompare(b));
+    if (this.selectedMarca && !marcasSet.has(this.selectedMarca)) {
+      this.selectedMarca = null;
+    }
   }
 
   onCategoryChange() {
+    if (this.activeTab === 'fijo' && !this.esCategoriaFabricacion()) {
+      this.selectedTecnologia = null;
+    }
+    this.actualizarOpcionesFiltros();
+    this.currentPage = 1;
+    this.applyFilterAndPagination();
+  }
+
+  onTecnologiaChange() {
+    this.actualizarOpcionesFiltros();
+    this.currentPage = 1;
+    this.applyFilterAndPagination();
+  }
+
+  onMarcaChange() {
+    this.actualizarOpcionesFiltros();
     this.currentPage = 1;
     this.applyFilterAndPagination();
   }
@@ -83,6 +230,9 @@ export class AssetComponent implements OnInit {
   clearFilters() {
     this.searchTerm = '';
     this.selectedCategory = null;
+    this.selectedTecnologia = null;
+    this.selectedMarca = null;
+    this.actualizarOpcionesFiltros();
     this.currentPage = 1;
     this.applyFilterAndPagination();
   }
@@ -115,6 +265,7 @@ export class AssetComponent implements OnInit {
             subCategoria: item.subCategoria || ((item as unknown as Record<string, unknown>)['subcategoria'] as string) || ((item as unknown as Record<string, unknown>)['Subcategoria'] as string) || ((item as unknown as Record<string, unknown>)['SUBCATEGORIA'] as string) || '',
             color: item.color || ((item as unknown as Record<string, unknown>)['color'] as string) || ((item as unknown as Record<string, unknown>)['Color'] as string) || '',
             marca: item.marca || ((item as unknown as Record<string, unknown>)['marca'] as string) || ((item as unknown as Record<string, unknown>)['Marca'] as string) || '',
+            tecnologia: item.tecnologia || ((item as unknown as Record<string, unknown>)['Tecnologia'] as string) || ((item as unknown as Record<string, unknown>)['TECNOLOGIA'] as string) || '',
             depMensual: 0,
             depAnual: 0
           };
@@ -123,7 +274,8 @@ export class AssetComponent implements OnInit {
           return asset;
         });
 
-        this.actualizarCategorias();
+        this.actualizarMarcasDisponibles(this.marcasList);
+        this.actualizarOpcionesFiltros();
         this.applyFilterAndPagination();
        
         this.loading = false;
@@ -139,8 +291,10 @@ export class AssetComponent implements OnInit {
   setActiveTab(tab: string) {
     this.activeTab = tab;
     this.selectedCategory = null;
+    this.selectedTecnologia = null;
+    this.selectedMarca = null;
     this.currentPage = 1;
-    this.actualizarCategorias();
+    this.actualizarOpcionesFiltros();
     this.applyFilterAndPagination();
   }
 
@@ -171,6 +325,24 @@ export class AssetComponent implements OnInit {
         const cat = item.categoria || ((item as unknown as Record<string, unknown>)['Categoria'] as string) || '';
         return cat.toLowerCase().trim() === selCat;
       });
+    }
+
+    // Filtrar por tecnología
+    if (this.selectedTecnologia) {
+      const tecTarget = this.selectedTecnologia.toUpperCase().trim();
+      temp = temp.filter(item => {
+        if (this.activeTab === 'material') {
+          return materialCompatibleConTecnologia(item, tecTarget);
+        }
+        const tecActivo = tecnologiaDeActivo(item);
+        return tecActivo ? tecActivo.toUpperCase() === tecTarget : (item.tecnologia || '').toUpperCase().trim() === tecTarget;
+      });
+    }
+
+    // Filtrar por marca (en material o circulante)
+    if (this.selectedMarca) {
+      const marcaTarget = this.selectedMarca.toLowerCase().trim();
+      temp = temp.filter(item => (item.marca || '').toLowerCase().trim() === marcaTarget);
     }
 
     // Filtrar por búsqueda

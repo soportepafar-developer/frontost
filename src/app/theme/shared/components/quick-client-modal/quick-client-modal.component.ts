@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, Output, OnInit, OnChanges, SimpleChange
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import Swal from 'sweetalert2';
+import { validarCamposObligatorios } from '../../../../core/utils/form-validation.helper';
 
 export interface QuickClientData {
   nombre: string;
@@ -55,9 +56,7 @@ export class QuickClientModalComponent implements OnInit, OnChanges {
   }
 
   confirm(): void {
-    if (this.clientForm.invalid) {
-      this.clientForm.markAllAsTouched();
-      Swal.fire('Atención', 'El nombre del cliente o prospecto es obligatorio.', 'warning');
+    if (!validarCamposObligatorios(this.clientForm)) {
       return;
     }
 

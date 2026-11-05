@@ -12,6 +12,7 @@ import { BudgetService } from '../../../../../core/services/cost/budget.service'
 import Swal from 'sweetalert2';
 import { SkuCoding } from '../../../../../core/models/Cost/coding';
 import { ComponentCanDeactivate } from '../../../../../core/guards/pending-changes.guard';
+import { validarCamposObligatorios } from '../../../../../core/utils/form-validation.helper';
 
 @Component({
   selector: 'app-add-coding',
@@ -296,9 +297,7 @@ export class AddCodingComponent implements OnInit, ComponentCanDeactivate {
 
   onSubmit() {
     this.submitted = true;
-    this.form.markAllAsTouched();
-    if (this.form.invalid) {
-      Swal.fire('Error', 'Complete los datos obligatorios.', 'error');
+    if (!validarCamposObligatorios(this.form)) {
       return;
     }
 
