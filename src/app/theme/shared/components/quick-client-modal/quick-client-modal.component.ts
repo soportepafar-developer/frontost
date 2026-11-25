@@ -1,13 +1,16 @@
 import { Component, EventEmitter, Input, Output, OnInit, OnChanges, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { NgSelectModule } from '@ng-select/ng-select';
 import Swal from 'sweetalert2';
 import { validarCamposObligatorios } from '../../../../core/utils/form-validation.helper';
+import { SECTORES_COMERCIALES, normalizarSectores } from '../../../../core/utils/client-sectors';
 
 export interface QuickClientData {
   nombre: string;
   rifCedula: string;
   categoria: string;
+  sectores?: string[];
   telefono: string;
   email: string;
   direccion: string;
@@ -16,7 +19,7 @@ export interface QuickClientData {
 @Component({
   selector: 'app-quick-client-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, NgSelectModule],
   templateUrl: './quick-client-modal.component.html'
 })
 export class QuickClientModalComponent implements OnInit, OnChanges {
@@ -29,6 +32,7 @@ export class QuickClientModalComponent implements OnInit, OnChanges {
   @Output() modalClosed = new EventEmitter<void>();
 
   clientForm!: FormGroup;
+  sectoresComerciales = SECTORES_COMERCIALES;
 
   ngOnInit(): void {
     this.initForm();
@@ -45,6 +49,7 @@ export class QuickClientModalComponent implements OnInit, OnChanges {
       nombre: [this.initialData?.nombre || '', Validators.required],
       rifCedula: [this.initialData?.rifCedula || ''],
       categoria: [this.initialData?.categoria || ''],
+      sectores: [normalizarSectores(this.initialData?.sectores)],
       telefono: [this.initialData?.telefono || ''],
       email: [this.initialData?.email || '', [Validators.email]],
       direccion: [this.initialData?.direccion || '']
@@ -65,6 +70,7 @@ export class QuickClientModalComponent implements OnInit, OnChanges {
       nombre: String(val.nombre || '').trim(),
       rifCedula: String(val.rifCedula || '').trim(),
       categoria: String(val.categoria || '').trim(),
+      sectores: normalizarSectores(val.sectores),
       telefono: String(val.telefono || '').trim(),
       email: String(val.email || '').trim(),
       direccion: String(val.direccion || '').trim()
