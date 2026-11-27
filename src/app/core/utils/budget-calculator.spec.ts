@@ -110,4 +110,21 @@ describe('budget-calculator', () => {
     const totales = calculateBudgetTotals(presupuesto, [], 0, 160, 0, 0);
     expect(totales.totalCostoMaterial).toBeCloseTo(12, 2);
   });
+
+  it('toma las horas de bloque sin multiplicarlas por la cantidad de cada pieza', () => {
+    const presupuesto = {
+      tasaFalloGlobal: 0,
+      tiempoSetup: 0,
+      tiempoPostProcesado: 0,
+      margenGanancia: 0,
+      cantidadGlobal: 1,
+      delivery: 0,
+      piezas: [
+        { tipo: 'Fabricada', tecnologia: 'FDM', cantidad: 3, gramos: 10, precioMaterial: 0.10, horas: 2, minutos: 0 }
+      ] as Parts[]
+    } as Budget;
+    const totales = calculateBudgetTotals(presupuesto, [], 0, 160, 0, 0);
+    expect(totales.totalCostoMaterial).toBeCloseTo(3, 2);
+    expect(totales.totalTiempoHoras).toBeCloseTo(2, 2);
+  });
 });

@@ -75,7 +75,8 @@ export class SaleListComponent implements OnInit {
           const sId = s.id ? String(s.id) : '';
           const override = sId ? localOverrides[sId] : null;
 
-          let estado = (override?.estadoVenta || s.estadoVenta || 'PAGADO') as EstadoVenta;
+          const rawEstado = String(override?.estadoVenta || s.estadoVenta || s.estado || 'PAGADO').toUpperCase().trim();
+          let estado = rawEstado as EstadoVenta;
           if (estado !== 'PAGADO' && estado !== 'ABONADO' && estado !== 'PENDIENTE') {
             estado = 'PAGADO';
           }
@@ -344,6 +345,7 @@ export class SaleListComponent implements OnInit {
     const pendiente = Math.max(0, total - abonado);
 
     const updatedFields: Partial<Sale> = {
+      estado,
       estadoVenta: estado,
       montoAbonado: abonado,
       montoPendiente: pendiente,

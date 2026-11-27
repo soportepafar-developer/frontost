@@ -14,6 +14,21 @@ export function calcularPrecioPorGramo(asset?: Asset | null): number {
   return Math.round(precioPorGramo * 10000) / 10000;
 }
 
+/* Calcula el precio unitario por cm² para tecnologías que cotizan por superficie (CNC, LSR). */
+export function calcularPrecioPorCm2(asset?: Asset | null): number {
+  if (!asset) return 0;
+  const uMedida = (asset.unidadMedida || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+  const valUnit = Number(asset.valorUnitario) || Number(asset.costoInicial) || 0;
+  if (valUnit <= 0) return 0;
+  const esM2 = uMedida === 'm²' || uMedida === 'm2' || uMedida === 'metros cuadrados' || uMedida === 'metro cuadrado';
+  const precio = esM2 ? (valUnit / 10000) : valUnit;
+  return Math.round(precio * 10000) / 10000;
+}
+
 /* Formatea la etiqueta de visualización de un activo en dropdowns con detalles de stock sin duplicados.*/
 export function formatAssetOption(asset: Asset | unknown, fallbackAssets: Asset[] = []): string {
   if (!asset) return '';
@@ -81,7 +96,10 @@ export function resolverNombreMaquina(
 ): string {
   if (!p) return '-';
   const pRecord = p as Record<string, unknown>;
-  if (pRecord['maquinaNombre'] && pRecord['maquinaNombre'] !== '-') return String(pRecord['maquinaNombre']);
+  const directMaq = pRecord['maquinaNombre'] || pRecord['MaquinaNombre'] || pRecord['maquina_nombre'] || pRecord['nombreMaquina'];
+  if (typeof directMaq === 'string' && directMaq && directMaq !== '-' && directMaq !== '[object Object]') {
+    return directMaq;
+  }
 
   const rawMaq = pRecord['maquina'] ?? pRecord['maquinaId'] ?? pRecord['maquina_id'];
   if (typeof rawMaq === 'object' && rawMaq !== null) {
@@ -108,8 +126,19 @@ export function resolverNombreMaterial(
 ): string {
   if (!p) return '-';
   const pRecord = p as Record<string, unknown>;
-  if (pRecord['materialDisplayName'] && pRecord['materialDisplayName'] !== '-') return String(pRecord['materialDisplayName']);
-  if (pRecord['materialTipo'] && pRecord['materialTipo'] !== 'Sin material') return String(pRecord['materialTipo']);
+  const directMat = pRecord['materialNombre']
+    || pRecord['MaterialNombre']
+    || pRecord['material_nombre']
+    || pRecord['nombreMaterial']
+    || pRecord['materialDisplayName']
+    || pRecord['materialLibre']
+    || pRecord['material_libre'];
+  if (typeof directMat === 'string' && directMat && directMat !== '-' && directMat !== 'Sin material' && directMat !== '[object Object]') {
+    return directMat;
+  }
+  if (pRecord['materialTipo'] && pRecord['materialTipo'] !== 'Sin material' && pRecord['materialTipo'] !== '-') {
+    return String(pRecord['materialTipo']);
+  }
 
   const rawAct = pRecord['activo'] ?? pRecord['assetId'] ?? pRecord['activo_id'];
   if (typeof rawAct === 'object' && rawAct !== null) {

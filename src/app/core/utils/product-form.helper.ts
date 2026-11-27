@@ -41,6 +41,15 @@ export function extractCorrelativosUsadosDeFamilia(
   }).filter(Boolean);
 }
 
+function extractId(raw: unknown): number | undefined {
+  if (raw === null || raw === undefined || raw === '') {
+    return undefined;
+  }
+  const value = typeof raw === 'object' ? (raw as Record<string, unknown>)['id'] : raw;
+  const id = Number(value);
+  return !isNaN(id) && id > 0 ? id : undefined;
+}
+
 /* Transforma las piezas de la BD/API al modelo con nombres resueltos para la vista.*/
 export function mapDbPiezasToView(
   rawPiezas: unknown[],
@@ -53,17 +62,23 @@ export function mapDbPiezasToView(
   return piezasArray.map(p => {
     const pRecord = p as Record<string, unknown>;
     const rawMaq = pRecord['maquina'] ?? pRecord['maquinaId'] ?? pRecord['maquina_id'];
-    const maqId = (rawMaq !== null && rawMaq !== undefined && rawMaq !== '') ? Number(rawMaq) : undefined;
+    const maqId = extractId(rawMaq);
     const maqName = resolverNombreMaquina(pRecord, maquinasList, allAssets);
 
     const rawAct = pRecord['activo'] ?? pRecord['assetId'] ?? pRecord['activo_id'];
-    const actId = (rawAct !== null && rawAct !== undefined && rawAct !== '') ? Number(rawAct) : undefined;
+    const actId = extractId(rawAct);
     const matName = resolverNombreMaterial(pRecord, activosMateriales, activosCirculantes, allAssets);
 
     const extra = extraerCamposTecnologia(pRecord);
     return {
       ...(p as PiezaProducto),
       ...extra,
+      cantidad: Number(pRecord['cantidad']) || 1,
+      gramos: Number(pRecord['gramos']) || 0,
+      metros: Number(pRecord['metros']) || 0,
+      horas: Number(pRecord['horas']) || 0,
+      minutos: Number(pRecord['minutos']) || 0,
+      precioMaterial: Number(pRecord['precioMaterial'] ?? pRecord['precio_material']) || 0,
       fromDb: true,
       maquina: maqId,
       maquinaNombre: maqName !== '-' ? maqName : (pRecord['maquinaNombre'] as string | undefined),

@@ -33,8 +33,7 @@ export function horasPorTecnologia(
     if (!tec) {
       return;
     }
-    const cantidad = Number(pieza.cantidad) || 1;
-    const minutos = ((Number(pieza.horas) || 0) * 60 + (Number(pieza.minutos) || 0)) * cantidad;
+    const minutos = (Number(pieza.horas) || 0) * 60 + (Number(pieza.minutos) || 0);
     mapa.set(tec, (mapa.get(tec) || 0) + minutos);
   });
 
@@ -87,8 +86,7 @@ export function sumarTiempoPiezas(
     if (String(pieza.tipo || '').toLowerCase() === 'del inventario') {
       return suma;
     }
-    const cantidad = Number(pieza.cantidad) || 1;
-    return suma + ((Number(pieza.horas) || 0) * 60 + (Number(pieza.minutos) || 0)) * cantidad;
+    return suma + ((Number(pieza.horas) || 0) * 60 + (Number(pieza.minutos) || 0));
   }, 0);
   return {
     horas: Math.floor(totalMinutos / 60),

@@ -39,6 +39,7 @@ export interface Sale {
   presupuesto?: number;
   cliente?: { id: number; nombre: string };
   producto?: { id: number; nombre: string };
+  estado?: EstadoVenta | string;
   estadoVenta?: EstadoVenta;
   montoAbonado?: number;
   montoPendiente?: number;

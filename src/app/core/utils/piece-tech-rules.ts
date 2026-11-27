@@ -109,6 +109,7 @@ export function reglasDePieza(tecnologia?: string | null): ReglasPiezaTecnologia
     return {
       ...BASE,
       codigo,
+      etiquetaTipoMaterial: 'Tipo de material',
       mostrarColor: false,
       mostrarLimpieza: true,
       mostrarEmpaque: true,
@@ -265,8 +266,8 @@ export function textoMedidaPieza(pieza: {
     const total = Math.round(area * cantidad * 100) / 100;
     return `${total} cm²`;
   }
-  if (reglas.mostrarMaterialLibre && pieza.materialLibre) {
-    return pieza.materialLibre;
+  if (reglas.mostrarMaterialLibre) {
+    return '-';
   }
   const gramos = Number(pieza.gramos) || 0;
   if (gramos <= 0) {
@@ -279,10 +280,30 @@ export interface BloquePiezas<T> {
   clave: string;
   tecnologia: string;
   equipo: string;
+  esInventario: boolean;
   piezas: Array<{ pieza: T; indice: number }>;
   horas: number;
   minutos: number;
   totalMinutos: number;
+}
+
+export function claveBloquePieza(pieza: {
+  tipo?: string;
+  tecnologia?: string;
+  maquina?: number;
+  maquinaNombre?: string;
+}): { clave: string; tecnologia: string; equipo: string; esInventario: boolean } {
+  const esInventario = String(pieza.tipo || '').toLowerCase() === 'del inventario';
+  const tecnologia = esInventario ? 'Inventario' : (normalizarTecnologiaPieza(pieza.tecnologia) || 'Sin tecnología');
+  const equipo = esInventario
+    ? 'Piezas de inventario'
+    : (pieza.maquinaNombre || (pieza.maquina ? `Equipo ${pieza.maquina}` : 'Sin equipo'));
+  return {
+    clave: `${tecnologia}|${equipo}`,
+    tecnologia,
+    equipo,
+    esInventario
+  };
 }
 
 export function agruparPiezasPorEquipo<T extends {
@@ -296,28 +317,23 @@ export function agruparPiezasPorEquipo<T extends {
 }>(piezas: T[]): BloquePiezas<T>[] {
   const mapa = new Map<string, BloquePiezas<T>>();
   (piezas || []).forEach((pieza, indice) => {
-    const delInventario = String(pieza.tipo || '').toLowerCase() === 'del inventario';
-    const tecnologia = delInventario ? 'Inventario' : (normalizarTecnologiaPieza(pieza.tecnologia) || 'Sin tecnología');
-    const equipo = delInventario
-      ? 'Piezas de inventario'
-      : (pieza.maquinaNombre || (pieza.maquina ? `Equipo ${pieza.maquina}` : 'Sin equipo'));
-    const clave = `${tecnologia}|${equipo}`;
-    if (!mapa.has(clave)) {
-      mapa.set(clave, {
-        clave,
-        tecnologia,
-        equipo,
+    const info = claveBloquePieza(pieza);
+    if (!mapa.has(info.clave)) {
+      mapa.set(info.clave, {
+        clave: info.clave,
+        tecnologia: info.tecnologia,
+        equipo: info.equipo,
+        esInventario: info.esInventario,
         piezas: [],
         horas: 0,
         minutos: 0,
         totalMinutos: 0
       });
     }
-    const bloque = mapa.get(clave) as BloquePiezas<T>;
+    const bloque = mapa.get(info.clave) as BloquePiezas<T>;
     bloque.piezas.push({ pieza, indice });
-    if (!delInventario) {
-      const cantidad = Number(pieza.cantidad) || 1;
-      bloque.totalMinutos += ((Number(pieza.horas) || 0) * 60 + (Number(pieza.minutos) || 0)) * cantidad;
+    if (!info.esInventario) {
+      bloque.totalMinutos += (Number(pieza.horas) || 0) * 60 + (Number(pieza.minutos) || 0);
     }
   });
   return [...mapa.values()].map(bloque => ({
@@ -325,6 +341,78 @@ export function agruparPiezasPorEquipo<T extends {
     horas: Math.floor(bloque.totalMinutos / 60),
     minutos: bloque.totalMinutos % 60
   }));
+}
+
+export function asignarHorasDeBloque<T extends {
+  tipo?: string;
+  tecnologia?: string;
+  maquina?: number;
+  maquinaNombre?: string;
+  horas?: number;
+  minutos?: number;
+}>(piezas: T[], claveBloque: string, horas: number | string, minutos: number | string): void {
+  const h = Math.max(0, Math.floor(Number(horas) || 0));
+  const m = Math.max(0, Math.floor(Number(minutos) || 0));
+  const totalMin = h * 60 + m;
+  const finalH = Math.floor(totalMin / 60);
+  const finalM = totalMin % 60;
+  let asignado = false;
+
+  (piezas || []).forEach(pieza => {
+    const info = claveBloquePieza(pieza);
+    if (info.esInventario || info.clave !== claveBloque) {
+      return;
+    }
+    if (!asignado) {
+      pieza.horas = finalH;
+      pieza.minutos = finalM;
+      asignado = true;
+    } else {
+      pieza.horas = 0;
+      pieza.minutos = 0;
+    }
+  });
+}
+
+export function obtenerTecnologiasDisponibles<T extends { codigo?: string }>(
+  tecnologias: T[],
+  usadas: string[],
+  multitecnologia: boolean
+): T[] {
+  const lista = [...(tecnologias || [])];
+  if (multitecnologia || !usadas || usadas.length === 0) {
+    return lista;
+  }
+  const unica = String(usadas[0] || '').toUpperCase().trim();
+  return lista.filter(t => String(t.codigo || '').toUpperCase().trim() === unica);
+}
+
+export function valoresResetCamposTecnologia(tecnologia?: string | null): Record<string, unknown> {
+  const reglas = reglasDePieza(tecnologia);
+  return {
+    piezaDescartablesPct: reglas.mostrarDescartables ? reglas.descartablesPorDefecto : '',
+    piezaLimpiezaMaquina: reglas.mostrarLimpieza ? reglas.limpiezaPorDefecto : '',
+    piezaEmpaque: '',
+    piezaCarasPcb: reglas.mostrarCarasPcb ? 1 : '',
+    piezaMascaraUvSoldadura: false,
+    piezaMascaraUvTextos: false,
+    piezaMaterialLibre: '',
+    piezaCostoEstimado: ''
+  };
+}
+
+export function preservarHorasAlEliminarPieza<T extends {
+  tipo?: string;
+  tecnologia?: string;
+  maquina?: number;
+  maquinaNombre?: string;
+  horas?: number;
+  minutos?: number;
+}>(piezasAntes: T[], indiceAEliminar: number, piezasDespues: T[]): void {
+  const bloqueAntes = agruparPiezasPorEquipo(piezasAntes).find(b => b.piezas.some(f => f.indice === indiceAEliminar));
+  if (bloqueAntes && !bloqueAntes.esInventario && (bloqueAntes.horas > 0 || bloqueAntes.minutos > 0)) {
+    asignarHorasDeBloque(piezasDespues, bloqueAntes.clave, bloqueAntes.horas, bloqueAntes.minutos);
+  }
 }
 
 export function mensajeValidacionPieza(

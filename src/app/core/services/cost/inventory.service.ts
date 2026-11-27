@@ -66,10 +66,12 @@ export class InventoryService {
   }
 
   createSale(presupuestoId: number, cantidad?: number, estadoVenta?: EstadoVenta, montoAbonado?: number): Observable<Sale> {
+    const estado = estadoVenta || 'PENDIENTE';
     return this.http.post<Sale>(`${this.api}/venta`, { 
       presupuesto: presupuestoId, 
       cantidad,
-      estadoVenta: estadoVenta || 'PENDIENTE',
+      estado,
+      estadoVenta: estado,
       montoAbonado: montoAbonado ?? 0
     });
   }

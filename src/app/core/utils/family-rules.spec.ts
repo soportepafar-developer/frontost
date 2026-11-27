@@ -36,12 +36,12 @@ describe('family-rules', () => {
     expect(nombrePiezaAutomatico(1)).toBe('Pieza 2');
   });
 
-  it('suma las horas por tecnología', () => {
+  it('suma las horas totales por tecnología sin multiplicar por cantidad de pieza', () => {
     const resumen = horasPorTecnologia([
       { tipo: 'Fabricada', tecnologia: 'FDM', horas: 1, minutos: 30, cantidad: 2 },
       { tipo: 'Fabricada', tecnologia: 'SLA', horas: 0, minutos: 20, cantidad: 1 }
     ]);
-    expect(resumen.find(r => r.tecnologia === 'FDM')?.totalMinutos).toBe(180);
+    expect(resumen.find(r => r.tecnologia === 'FDM')?.totalMinutos).toBe(90);
     expect(resumen.find(r => r.tecnologia === 'SLA')?.totalMinutos).toBe(20);
   });
 

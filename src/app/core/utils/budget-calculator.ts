@@ -196,7 +196,7 @@ export function calculateBudgetTotals(
 
       const horas = Number(pieza.horas) || 0;
       const minutos = Number(pieza.minutos) || 0;
-      const tiempoPieza = (horas + (minutos / 60)) * cant;
+      const tiempoPieza = horas + (minutos / 60);
       totalTiempoHorasPiezas += tiempoPieza;
 
       const maquinaPieza = pieza.maquina && allAssets.length > 0
