@@ -32,6 +32,7 @@ import { CatalogConfigService } from '../../../../../core/services/cost/catalog-
 import { CatalogoSimple, MaterialCatalogo, TecnologiaCatalogo } from '../../../../../core/models/Cost/catalog-config';
 import { esEquiposFabricacion } from '../../../../../core/constants/asset-categories';
 import {
+  calcularPrecioPorCm2,
   calcularPrecioPorGramo,
   formatAssetOption,
   filtrarMaquinasPorTecnologia,
@@ -43,14 +44,19 @@ import {
 } from '../../../../../core/utils/piece-builder.helper';
 import {
   agruparPiezasPorEquipo,
+  asignarHorasDeBloque,
   calcularAreaCm2,
   extraerCamposTecnologia,
   mensajeValidacionPieza,
+  obtenerTecnologiasDisponibles,
+  preservarHorasAlEliminarPieza,
   reglasDePieza,
-  textoMedidaPieza
+  textoMedidaPieza,
+  valoresResetCamposTecnologia
 } from '../../../../../core/utils/piece-tech-rules';
 import { ComponentCanDeactivate } from '../../../../../core/guards/pending-changes.guard';
 import { QuickClientModalComponent, QuickClientData } from '../../../../../theme/shared/components/quick-client-modal/quick-client-modal.component';
+import { PieceDetailEditorComponent } from '../../../../../theme/shared/components/piece-detail-editor/piece-detail-editor.component';
 import { TASAS_FALLO, horasPorTecnologia, nombrePiezaAutomatico, sumarTiempoPiezas } from '../../../../../core/utils/family-rules';
 import { tecnologiasDesdePiezas } from '../../../../../core/utils/catalog-sku';
 import {
@@ -66,7 +72,7 @@ import {
 @Component({
   selector: 'app-add-budget',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule, NgSelectModule, QuickClientModalComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule, NgSelectModule, QuickClientModalComponent, PieceDetailEditorComponent],
   templateUrl: './add-budget.component.html'
 })
 export class AddBudgetComponent implements OnInit, ComponentCanDeactivate {
@@ -189,19 +195,12 @@ export class AddBudgetComponent implements OnInit, ComponentCanDeactivate {
   }
 
   get tecnologiasDisponiblesPieza() {
-    const usadas = this.tecnologiasDePiezas;
-    const actual = String(this.form?.get('piezaTecnologia')?.value || '').toUpperCase();
-    if (!this.form?.get('multitecnologia')?.value) {
-      if (usadas.length > 0) {
-        return this.tecnologias.filter(t => (t.codigo || '').toUpperCase() === usadas[0]);
-      }
-      return this.tecnologias;
-    }
-    return this.tecnologias.filter(t => {
-      const codigo = (t.codigo || '').toUpperCase();
-      return codigo === actual || !usadas.includes(codigo);
-    });
+    return obtenerTecnologiasDisponibles(this.tecnologias, this.tecnologiasDePiezas, true);
   }
+
+  resolverMaterialPieza = (row: Parts | Record<string, unknown> | unknown): string => {
+    return this.getNombreMaterial(row);
+  };
 
   get resumenHoras() {
     return horasPorTecnologia(this.piezas);
@@ -571,8 +570,8 @@ export class AddBudgetComponent implements OnInit, ComponentCanDeactivate {
       }
       nombre = this.form.get('piezaFabricada')?.value || this.siguienteNombrePieza;
       gramos = Number(this.form.get('piezaGramos')?.value) || 0;
-      horas = Number(this.form.get('piezaHoras')?.value) || 0;
-      minutos = Number(this.form.get('piezaMinutos')?.value) || 0;
+      horas = 0;
+      minutos = 0;
 
       const maqVal = this.form.get('activoId')?.value;
       if (maqVal) {
@@ -724,7 +723,14 @@ export class AddBudgetComponent implements OnInit, ComponentCanDeactivate {
     this.form.get('piezaMaterialId')?.disable();
   }
 
-  onDelete(row: Parts): void {
+  onTiempoBloqueChange(clave: string, horas: string | number, minutos: string | number): void {
+    asignarHorasDeBloque(this.piezas, clave, horas, minutos);
+    this.persistirPiezasActivas();
+    this.form.markAsDirty();
+    this.cdr.detectChanges();
+  }
+
+  onDelete(row: { id?: number; nombre?: string }): void {
     Swal.fire({
       title: `¿Estás seguro que deseas eliminar de la lista ${row.nombre}?`,
       showDenyButton: true,
@@ -732,7 +738,12 @@ export class AddBudgetComponent implements OnInit, ComponentCanDeactivate {
       denyButtonText: `Cancelar`
     }).then((result) => {
       if (result.isConfirmed) {
+        const antes = [...this.piezas];
+        const idx = antes.findIndex(p => p.id === row.id);
         this.piezas = this.piezas.filter(p => p.id !== row.id);
+        if (idx !== -1) {
+          preservarHorasAlEliminarPieza(antes, idx, this.piezas);
+        }
         this.persistirPiezasActivas();
         this.piezaCounter = Math.max(1, this.piezaCounter - 1);
         this.f['nombre'].setValue(`PIEZA ${this.piezaCounter}`);
@@ -914,18 +925,8 @@ export class AddBudgetComponent implements OnInit, ComponentCanDeactivate {
 
     this.form.get('piezaTecnologia')?.valueChanges.pipe(
       takeUntilDestroyed(this.destroyRef)
-    ).subscribe(() => {
-      const reglas = this.reglasPieza;
-      this.form.patchValue({
-        piezaDescartablesPct: reglas.mostrarDescartables ? reglas.descartablesPorDefecto : '',
-        piezaLimpiezaMaquina: reglas.mostrarLimpieza ? reglas.limpiezaPorDefecto : '',
-        piezaEmpaque: '',
-        piezaCarasPcb: reglas.mostrarCarasPcb ? 1 : '',
-        piezaMascaraUvSoldadura: false,
-        piezaMascaraUvTextos: false,
-        piezaMaterialLibre: '',
-        piezaCostoEstimado: ''
-      }, { emitEvent: false });
+    ).subscribe(tec => {
+      this.form.patchValue(valoresResetCamposTecnologia(tec), { emitEvent: false });
       this.aplicarFiltroTecnologiaPieza();
     });
 
@@ -1006,7 +1007,9 @@ export class AddBudgetComponent implements OnInit, ComponentCanDeactivate {
     if (materialId) {
       const selectedAsset = this.activosMateriales.find(a => a.id == materialId) || this.activosCirculantes.find(a => a.id == materialId);
       if (selectedAsset) {
-        const rounded = calcularPrecioPorGramo(selectedAsset);
+        const rounded = this.reglasPieza.usaSuperficie
+          ? calcularPrecioPorCm2(selectedAsset)
+          : calcularPrecioPorGramo(selectedAsset);
         this.form.get('piezaPrecioMaterial')?.setValue(rounded);
         return;
       }

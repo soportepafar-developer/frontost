@@ -56,15 +56,13 @@ describe('AddProductComponent', () => {
     expect(component.piezasPendientes[0]['horas']).toBe(0);
   });
 
-  it('nombra sola la pieza si no escriben nombre', () => {
+  it('nombra sola la pieza si no escriben nombre y permite asignar horas al bloque completo', () => {
     component.form.patchValue({
       piezaTipo: 'Fabricada',
       piezaTecnologia: 'FDM',
       piezaFabricada: '',
       piezaCantidad: 1,
       piezaGramos: 10,
-      piezaHoras: 1,
-      piezaMinutos: 15,
       piezaMaterialId: 10
     });
     component.activosMateriales = [
@@ -72,8 +70,27 @@ describe('AddProductComponent', () => {
     ];
     component.agregarPieza();
     expect(component.piezasPendientes[0]['nombre']).toBe('Pieza 1');
-    expect(component.piezasPendientes[0]['horas']).toBe(1);
-    expect(component.piezasPendientes[0]['minutos']).toBe(15);
+    expect(component.piezasPendientes[0]['horas']).toBe(0);
+    expect(component.piezasPendientes[0]['minutos']).toBe(0);
+
+    component.form.patchValue({
+      piezaTipo: 'Fabricada',
+      piezaTecnologia: 'FDM',
+      piezaFabricada: 'Pieza 2',
+      piezaCantidad: 2,
+      piezaGramos: 20,
+      piezaMaterialId: 10
+    });
+    component.agregarPieza();
+
+    const clave = component.bloquesPiezas[0].clave;
+    component.onTiempoBloqueChange(clave, 2, 15);
+    expect(component.bloquesPiezas[0].horas).toBe(2);
+    expect(component.bloquesPiezas[0].minutos).toBe(15);
+
+    component.removerPieza(0);
+    expect(component.bloquesPiezas[0].horas).toBe(2);
+    expect(component.bloquesPiezas[0].minutos).toBe(15);
   });
 
   it('en control numérico pide medidas y no exige polímero', () => {
@@ -93,6 +110,52 @@ describe('AddProductComponent', () => {
     expect(component.piezasPendientes[0].anchoCm).toBe(10);
     expect(component.piezasPendientes[0].areaCm2).toBe(50);
     expect(component.piezasPendientes[0].carasPcb).toBe(2);
+  });
+
+  it('con multitecnología activa permite agregar varias piezas de la misma tecnología y de otras', () => {
+    component.tecnologias = [
+      { id: 1, codigo: 'FDM', nombre: 'Filamento' },
+      { id: 2, codigo: 'SLA', nombre: 'Resina' }
+    ];
+    component.activosMateriales = [
+      { id: 10, nombre: 'Filamento PLA', tipo: 'Material', categoria: 'Filamento' } as unknown as Asset,
+      { id: 20, nombre: 'Resina Grey', tipo: 'Material', categoria: 'Resina' } as unknown as Asset
+    ];
+
+    component.form.patchValue({
+      multitecnologia: true,
+      piezaTipo: 'Fabricada',
+      piezaTecnologia: 'FDM',
+      piezaFabricada: 'Cuerpo',
+      piezaCantidad: 1,
+      piezaGramos: 50,
+      piezaMaterialId: 10
+    });
+    component.agregarPieza();
+
+    expect(component.tecnologiasDisponiblesPieza.map(t => t.codigo)).toEqual(['FDM', 'SLA']);
+    expect(component.form.get('piezaTecnologia')?.value).toBe('FDM');
+
+    component.form.patchValue({
+      piezaFabricada: 'Tapa',
+      piezaCantidad: 1,
+      piezaGramos: 30,
+      piezaMaterialId: 10
+    });
+    component.agregarPieza();
+
+    component.form.patchValue({
+      piezaTecnologia: 'SLA',
+      piezaFabricada: 'Visor',
+      piezaCantidad: 1,
+      piezaGramos: 15,
+      piezaMaterialId: 20
+    });
+    component.agregarPieza();
+
+    expect(component.piezasPendientes.length).toBe(3);
+    expect(component.piezasPendientes.filter(p => p.tecnologia === 'FDM').length).toBe(2);
+    expect(component.piezasPendientes.filter(p => p.tecnologia === 'SLA').length).toBe(1);
   });
 
   it('should reset form and pending parts cleanly via reiniciarFormulario()', () => {

@@ -8,6 +8,8 @@ import { ConfigService } from '../../../../../core/services/cost/config.service'
 import { AssetService } from '../../../../../core/services/cost/asset.service';
 import { Asset } from '../../../../../core/models/Cost/asset';
 import { mapDbPiezasToView } from '../../../../../core/utils/product-form.helper';
+import { agruparPiezasPorEquipo, BloquePiezas, textoMedidaPieza } from '../../../../../core/utils/piece-tech-rules';
+import { parsearTasasFallo, tasaFalloDePieza } from '../../../../../core/utils/family-rules';
 import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
 
@@ -277,6 +279,44 @@ export class ProductComponent implements OnInit {
     const dRec = row as unknown as Record<string, unknown>;
     const rawPiezas = dRec['piezasProducto'] ?? dRec['piezas_producto'] ?? dRec['piezas'] ?? row.piezasProducto;
     return Array.isArray(rawPiezas) && rawPiezas.length > 0;
+  }
+
+  get bloquesPiezasModal(): BloquePiezas<PiezaProducto>[] {
+    return agruparPiezasPorEquipo(this.selectedProductForModal?.piezasProducto || []);
+  }
+
+  textoMedida(p: PiezaProducto): string {
+    const medida = textoMedidaPieza(p);
+    if (medida === '-' && Number(p.metros) > 0) {
+      return `${Number(p.metros)} m`;
+    }
+    return medida;
+  }
+
+  tasaFalloDeBloque(bloque: BloquePiezas<PiezaProducto>): number | null {
+    if (bloque.esInventario) {
+      return null;
+    }
+    const tasasMapa = parsearTasasFallo(this.selectedProductForModal?.tasasFallo);
+    const tasa = tasaFalloDePieza(
+      { tecnologia: bloque.tecnologia },
+      tasasMapa,
+      Number(this.selectedProductForModal?.tasaFallo) || 0
+    );
+    return tasa > 0 ? tasa : null;
+  }
+
+  materialPieza(p: PiezaProducto): string {
+    return p.materialLibre || p.activoNombre || p.polimero || p.material || '-';
+  }
+
+  precioMaterialPieza(p: PiezaProducto): number | null {
+    const precio = Number(p.precioMaterial) || 0;
+    if (precio > 0) {
+      return precio;
+    }
+    const estimado = Number(p.costoEstimado) || 0;
+    return estimado > 0 ? estimado : null;
   }
 
   onEdit(row: Product) {

@@ -59,8 +59,8 @@ describe('AddBudgetComponent', () => {
         cantidad: 2,
         gramos: 100,
         precioMaterial: 0.05, // 100g * 0.05 = $5.00 por pieza * 2 = $10.00
-        horas: 1,
-        minutos: 30, // 1.5 horas por pieza * 2 = 3.0 horas totales
+        horas: 3,
+        minutos: 0, // 3.0 horas totales del bloque
         materialTipo: 'Filamento PLA'
       }
     ];
@@ -173,5 +173,24 @@ describe('AddBudgetComponent', () => {
     expect(component.piezas.length).toBe(1);
     expect(component.piezas[0].nombre).toBe('Cabeza');
     expect(item2.piezas.length).toBe(1);
+  });
+
+  it('actualiza los totales en vivo al asignar horas de producción por bloque', () => {
+    component.piezas = [
+      { id: 1, tipo: 'Fabricada', tecnologia: 'FDM', maquinaNombre: 'Prusa', nombre: 'Base', cantidad: 1, gramos: 50, precioMaterial: 0.04, horas: 0, minutos: 0 },
+      { id: 2, tipo: 'Fabricada', tecnologia: 'FDM', maquinaNombre: 'Prusa', nombre: 'Tapa', cantidad: 2, gramos: 25, precioMaterial: 0.04, horas: 0, minutos: 0 }
+    ];
+    component.totalFijoIndirecto = 200;
+    component.capacidadHorasMaquina = 100;
+    component.tasaDepreciacionMaquina = 0;
+
+    const clave = component.bloquesPiezas[0].clave;
+    component.onTiempoBloqueChange(clave, 2, 30);
+
+    expect(component.bloquesPiezas[0].horas).toBe(2);
+    expect(component.bloquesPiezas[0].minutos).toBe(30);
+    const totales = component.getTotales();
+    expect(totales.totalTiempoHoras).toBeCloseTo(2.5, 2);
+    expect(totales.costoIndirectoAsignado).toBeCloseTo(5.0, 2);
   });
 });

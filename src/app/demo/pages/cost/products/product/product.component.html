@@ -276,44 +276,75 @@
               <span class="text-muted small">Cargando desglose de piezas...</span>
             </div>
           } @else if (selectedProductForModal.piezasProducto && selectedProductForModal.piezasProducto.length > 0) {
-            <div class="table-responsive border rounded mb-2">
-              <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;">
-                <thead class="table-light">
-                  <tr>
-                    <th>Pieza</th>
-                    <th>Tipo</th>
-                    <th class="text-center">Cant.</th>
-                    <th>Tecnología</th>
-                    <th>Material / Polímero</th>
-                    <th>Máquina</th>
-                    <th>Peso / Long.</th>
-                    <th>Tiempo</th>
-                    <th>Precio Mat.</th>
-                    <th>Falla</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (p of selectedProductForModal.piezasProducto; track $index) {
-                    <tr>
-                      <td class="fw-semibold">{{ p.nombre || ('Pieza ' + ($index + 1)) }}</td>
-                      <td>
-                        <span class="badge" [class.bg-light-primary]="p.tipo === 'Fabricada' || !p.tipo" [class.text-primary]="p.tipo === 'Fabricada' || !p.tipo" [class.bg-light-success]="p.tipo === 'Del Inventario'" [class.text-success]="p.tipo === 'Del Inventario'">
-                          {{ p.tipo || 'Fabricada' }}
-                        </span>
-                      </td>
-                      <td class="text-center fw-bold">{{ p.cantidad || 1 }}</td>
-                      <td>{{ p.tecnologia || '-' }}</td>
-                      <td>{{ p.polimero || p.material || p.activoNombre || '-' }}</td>
-                      <td>{{ p.maquinaNombre || p.maquina || '-' }}</td>
-                      <td>{{ p.gramos ? (p.gramos + ' g') : (p.metros ? (p.metros + ' m') : '-') }}</td>
-                      <td>{{ (p.horas || 0) }}h {{ (p.minutos || 0) }}m</td>
-                      <td>{{ p.precioMaterial ? ('$' + (p.precioMaterial | number:'1.2-2')) : '-' }}</td>
-                      <td>{{ p.tasaFallo !== undefined && p.tasaFallo !== null ? (p.tasaFallo + '%') : '-' }}</td>
-                    </tr>
+            @for (bloque of bloquesPiezasModal; track bloque.clave) {
+              <div class="mb-3 border rounded overflow-hidden">
+                <div class="bg-light px-3 py-2 d-flex flex-wrap justify-content-between align-items-center gap-2 border-bottom">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="badge" [class.bg-primary]="!bloque.esInventario" [class.bg-success]="bloque.esInventario">
+                      {{ bloque.tecnologia }}
+                    </span>
+                    <strong class="text-dark small">{{ bloque.equipo }}</strong>
+                    <span class="badge bg-white text-muted border">
+                      {{ bloque.piezas.length }} {{ bloque.piezas.length === 1 ? 'pieza' : 'piezas' }}
+                    </span>
+                  </div>
+                  @if (!bloque.esInventario) {
+                    <div class="d-flex align-items-center gap-2">
+                      @if (tasaFalloDeBloque(bloque); as falla) {
+                        <span class="badge bg-light-danger text-danger border">Falla: {{ falla }}%</span>
+                      }
+                      <span class="badge bg-light-primary text-primary border">
+                        <i class="ti ti-clock me-1"></i>{{ bloque.horas }}h {{ bloque.minutos }}m
+                      </span>
+                    </div>
                   }
-                </tbody>
-              </table>
-            </div>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Pieza</th>
+                        <th>Tipo</th>
+                        <th class="text-center">Cant.</th>
+                        <th>Material</th>
+                        <th>Medida</th>
+                        <th class="text-end">Precio Mat.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (item of bloque.piezas; track item.indice) {
+                        <tr>
+                          <td class="fw-semibold">{{ item.pieza.nombre || ('Pieza ' + (item.indice + 1)) }}</td>
+                          <td>
+                            <span class="badge" [class.bg-light-primary]="item.pieza.tipo === 'Fabricada' || !item.pieza.tipo" [class.text-primary]="item.pieza.tipo === 'Fabricada' || !item.pieza.tipo" [class.bg-light-success]="item.pieza.tipo === 'Del Inventario'" [class.text-success]="item.pieza.tipo === 'Del Inventario'">
+                              {{ item.pieza.tipo || 'Fabricada' }}
+                            </span>
+                          </td>
+                          <td class="text-center fw-bold">{{ item.pieza.cantidad || 1 }}</td>
+                          <td>{{ materialPieza(item.pieza) }}</td>
+                          <td>{{ textoMedida(item.pieza) }}</td>
+                          <td class="text-end">
+                            @if (precioMaterialPieza(item.pieza); as precio) {
+                              ${{ precio | number:'1.2-2' }}
+                            } @else {
+                              -
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                    @if (!bloque.esInventario) {
+                      <tfoot>
+                        <tr class="table-light fw-semibold">
+                          <td colspan="4" class="text-end text-muted small">Tiempo total del bloque:</td>
+                          <td colspan="2" class="text-end text-primary">{{ bloque.horas }}h {{ bloque.minutos }}m</td>
+                        </tr>
+                      </tfoot>
+                    }
+                  </table>
+                </div>
+              </div>
+            }
           } @else {
             <div class="alert alert-light border text-muted py-3 px-3 text-center mb-0 small">
               <i class="ti ti-info-circle fs-5 me-1 align-middle"></i>

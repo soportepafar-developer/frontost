@@ -25,6 +25,7 @@ import {
 } from '../../../../../core/utils/family-rules';
 import { esEquiposFabricacion } from '../../../../../core/constants/asset-categories';
 import {
+  calcularPrecioPorCm2,
   calcularPrecioPorGramo,
   formatAssetOption,
   resolverNombreMaquina,
@@ -38,11 +39,15 @@ import {
 } from '../../../../../core/utils/piece-builder.helper';
 import {
   agruparPiezasPorEquipo,
+  asignarHorasDeBloque,
   calcularAreaCm2,
   extraerCamposTecnologia,
   mensajeValidacionPieza,
+  obtenerTecnologiasDisponibles,
+  preservarHorasAlEliminarPieza,
   reglasDePieza,
-  textoMedidaPieza
+  textoMedidaPieza,
+  valoresResetCamposTecnologia
 } from '../../../../../core/utils/piece-tech-rules';
 import {
   extractCorrelativosUsadosDeFamilia,
@@ -57,11 +62,12 @@ import Swal from 'sweetalert2';
 import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
 import { ComponentCanDeactivate } from '../../../../../core/guards/pending-changes.guard';
+import { PieceDetailEditorComponent } from '../../../../../theme/shared/components/piece-detail-editor/piece-detail-editor.component';
 
 @Component({
   selector: 'app-add-product',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule, NgSelectModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule, NgSelectModule, PieceDetailEditorComponent],
   templateUrl: './add-product.component.html'
 })
 export class AddProductComponent implements OnInit, ComponentCanDeactivate {
@@ -363,18 +369,11 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
   }
 
   get tecnologiasDisponiblesPieza() {
-    const usadas = this.tecnologiasDePiezas;
-    const actual = String(this.form?.get('piezaTecnologia')?.value || '').toUpperCase();
-    if (!this.form?.get('multitecnologia')?.value) {
-      if (usadas.length > 0) {
-        return this.tecnologias.filter(t => (t.codigo || '').toUpperCase() === usadas[0]);
-      }
-      return this.tecnologias;
-    }
-    return this.tecnologias.filter(t => {
-      const codigo = (t.codigo || '').toUpperCase();
-      return codigo === actual || !usadas.includes(codigo);
-    });
+    return obtenerTecnologiasDisponibles(
+      this.tecnologias,
+      this.tecnologiasDePiezas,
+      !!this.form?.get('multitecnologia')?.value
+    );
   }
 
   get resumenHoras() {
@@ -546,6 +545,10 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
     );
   }
 
+  resolverMaterialPieza = (p: Record<string, unknown> | PiezaProducto | unknown): string => {
+    return this.getNombreMaterial(p);
+  };
+
   getNombreMaquina(p: Record<string, unknown> | PiezaProducto | unknown): string {
     return resolverNombreMaquina(p as Record<string, unknown>, this.maquinasList, this.allAssets);
   }
@@ -660,7 +663,9 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
     if (materialId) {
       const asset = this.activosMateriales.find(a => a.id == materialId) || this.activosCirculantes.find(a => a.id == materialId);
       if (asset) {
-        const rounded = calcularPrecioPorGramo(asset);
+        const rounded = this.reglasPieza.usaSuperficie
+          ? calcularPrecioPorCm2(asset)
+          : calcularPrecioPorGramo(asset);
         this.form.get('piezaPrecioMaterial')?.setValue(rounded);
         return;
       }
@@ -705,8 +710,8 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
       }
       nombre = this.form.get('piezaFabricada')?.value || this.siguienteNombrePieza;
       gramos = Number(this.form.get('piezaGramos')?.value) || 0;
-      horas = Number(this.form.get('piezaHoras')?.value) || 0;
-      minutos = Number(this.form.get('piezaMinutos')?.value) || 0;
+      horas = 0;
+      minutos = 0;
       
       const maqVal = this.form.get('activoId')?.value;
       if (maqVal) {
@@ -777,10 +782,15 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
     this.asegurarTasasDePiezas();
     this.actualizarPreviewCodigo();
 
+    const multitec = !!this.form.get('multitecnologia')?.value;
+    const tecConservar = multitec
+      ? (this.form.get('piezaTecnologia')?.value || this.tecnologiasDePiezas[0] || '')
+      : (this.tecnologiasDePiezas[0] || '');
+
     this.form.patchValue({
       piezaInventario: '',
       piezaFabricada: '',
-      piezaTecnologia: this.form.get('multitecnologia')?.value ? '' : (this.tecnologiasDePiezas[0] || ''),
+      piezaTecnologia: tecConservar,
       piezaCantidad: 1,
       piezaGramos: '',
       piezaHoras: 0,
@@ -804,8 +814,16 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
     this.cdr.detectChanges();
   }
 
+  onTiempoBloqueChange(clave: string, horas: string | number, minutos: string | number) {
+    asignarHorasDeBloque(this.piezasPendientes, clave, horas, minutos);
+    this.form.markAsDirty();
+    this.cdr.detectChanges();
+  }
+
   removerPieza(index: number) {
+    const antes = [...this.piezasPendientes];
     this.piezasPendientes.splice(index, 1);
+    preservarHorasAlEliminarPieza(antes, index, this.piezasPendientes);
     this.piezasPendientes = [...this.piezasPendientes];
     this.asegurarTasasDePiezas();
     this.actualizarPreviewCodigo();
@@ -945,18 +963,8 @@ export class AddProductComponent implements OnInit, ComponentCanDeactivate {
 
     this.form.get('piezaTecnologia')?.valueChanges.pipe(
       takeUntilDestroyed(this.destroyRef)
-    ).subscribe(() => {
-      const reglas = this.reglasPieza;
-      this.form.patchValue({
-        piezaDescartablesPct: reglas.mostrarDescartables ? reglas.descartablesPorDefecto : '',
-        piezaLimpiezaMaquina: reglas.mostrarLimpieza ? reglas.limpiezaPorDefecto : '',
-        piezaEmpaque: '',
-        piezaCarasPcb: reglas.mostrarCarasPcb ? 1 : '',
-        piezaMascaraUvSoldadura: false,
-        piezaMascaraUvTextos: false,
-        piezaMaterialLibre: '',
-        piezaCostoEstimado: ''
-      }, { emitEvent: false });
+    ).subscribe(tec => {
+      this.form.patchValue(valoresResetCamposTecnologia(tec), { emitEvent: false });
       this.aplicarFiltroTecnologiaPieza();
     });
 

@@ -3,7 +3,17 @@ import { Asset } from '../models/Cost/asset';
 import { Product } from '../models/Cost/product';
 import { calculateBudgetTotals, costoHoraMaquina, normalizeBudget } from './budget-calculator';
 import { calculateMultiItemTotals, hidratarLineas, nombresDeLineas, normalizarClasificacion } from './budget-items';
+import { parsearTasasFallo, tasaFalloDePieza } from './family-rules';
+import { agruparPiezasPorEquipo, calcularAreaCm2, reglasDePieza, textoMedidaPieza } from './piece-tech-rules';
 import Swal from 'sweetalert2';
+
+function escapeHtml(text: unknown): string {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 export interface ClientModalData {
   nombre: string;
@@ -125,18 +135,11 @@ export function showBudgetStudyModal(
   const deliveryCost = res.delivery;
   const totalBudgetFinal = res.costoTotalFinal;
 
-  function renderPiezaRow(p: Parts): string {
+  const tasasMapa = parsearTasasFallo(norm.tasasFallo);
+
+  function costoInsumoPieza(p: Parts): number {
     const pRec = p as unknown as Record<string, unknown>;
     const cant = Number(pRec['cantidad'] ?? p.cantidad) || 1;
-    const baseG = Number(pRec['gramos'] ?? p.gramos) || 0;
-    const g = baseG * cant;
-    const baseH = Number(pRec['horas'] ?? p.horas) || 0;
-    const baseMin = Number(pRec['minutos'] ?? p.minutos) || 0;
-    const totalMinutos = (baseH * 60 + baseMin) * cant;
-    const h = Math.floor(totalMinutos / 60);
-    const min = totalMinutos % 60;
-
-    let matCost: number;
     const tipo = String(pRec['tipo'] ?? p.tipo ?? 'Fabricada');
     if (tipo === 'Del Inventario') {
       const actId = pRec['activo'] ?? pRec['activo_id'] ?? pRec['assetId'] ?? p.activo;
@@ -150,40 +153,141 @@ export function showBudgetStudyModal(
       if (unitVal <= 0) {
         unitVal = Number(pRec['costoInicial'] ?? pRec['valorUnitario'] ?? pRec['precio'] ?? pRec['precioMaterial'] ?? p.precioMaterial) || 0;
       }
-      matCost = unitVal * cant;
-    } else {
-      let precioMat = Number(pRec['precioMaterial'] ?? pRec['precio_material'] ?? p.precioMaterial) || 0;
-      if (precioMat >= 1.0) {
-        precioMat = precioMat / 1000;
-      }
-      matCost = g * precioMat;
+      return unitVal * cant;
     }
 
-    let maqRate = res.costoMaquinaRate;
-    const maqId = p.maquina ?? pRec['maquina_id'] ?? pRec['activo_id'];
-    if (maqId && allAssets && allAssets.length > 0) {
-      const maq = allAssets.find(a => a.id == maqId);
-      if (maq) {
-        maqRate = costoHoraMaquina(maq).rate;
+    const reglas = reglasDePieza(p.tecnologia);
+    let precioMat = Number(pRec['precioMaterial'] ?? pRec['precio_material'] ?? p.precioMaterial) || 0;
+    if (precioMat <= 0 && p.activo && allAssets && allAssets.length > 0) {
+      const foundAsset = allAssets.find(a => a.id == p.activo);
+      if (foundAsset) {
+        precioMat = Number(foundAsset.valorUnitario) || Number(foundAsset.costoInicial) || 0;
       }
     }
-    const maqCost = (maqRate || 0) * (totalMinutos / 60);
-    const tiempoTxt = (baseH > 0 || baseMin > 0) ? `${h}h ${min}m` : '-';
-    const cleanNombre = (p.nombre || 'Pieza').replace(/"/g, '&quot;');
+
+    let total = 0;
+    if (reglas.codigo === 'ALM') {
+      total = (Number(pRec['costoEstimado'] ?? p.costoEstimado) || precioMat) * cant;
+    } else if (reglas.usaSuperficie) {
+      const area = Number(pRec['areaCm2'] ?? pRec['area_cm2'] ?? p.areaCm2)
+        || calcularAreaCm2(Number(pRec['anchoCm'] ?? p.anchoCm), Number(pRec['largoCm'] ?? p.largoCm));
+      const caras = Number(pRec['carasPcb'] ?? p.carasPcb) > 0 ? Number(pRec['carasPcb'] ?? p.carasPcb) : 1;
+      total = area * caras * precioMat * cant;
+    } else {
+      const g = Number(pRec['gramos'] ?? p.gramos) || 0;
+      let precioGramo = precioMat;
+      if (precioGramo >= 1.0) {
+        precioGramo = precioGramo / 1000;
+      }
+      const descartables = reglas.mostrarDescartables
+        ? (Number(pRec['descartablesPct'] ?? p.descartablesPct) || 0) / 100
+        : 0;
+      total = (g * (1 + descartables) * precioGramo) * cant;
+    }
+
+    if (reglas.mostrarLimpieza) {
+      total += (Number(pRec['limpiezaMaquina'] ?? p.limpiezaMaquina) || 0) * cant;
+    }
+    if (reglas.mostrarEmpaque) {
+      total += (Number(pRec['empaque'] ?? p.empaque) || 0) * cant;
+    }
+    return total;
+  }
+
+  function renderPiezaRow(p: Parts): string {
+    const pRec = p as unknown as Record<string, unknown>;
+    const cant = Number(pRec['cantidad'] ?? p.cantidad) || 1;
+    const tipo = String(pRec['tipo'] ?? p.tipo ?? 'Fabricada');
+    const medida = textoMedidaPieza(p);
+    const matCost = costoInsumoPieza(p);
+    const cleanNombre = escapeHtml(p.nombre || 'Pieza');
 
     return `
       <tr>
         <td class="text-start ps-3 fw-medium text-dark" style="max-width: 280px;">
-          <div class="text-truncate" title="${cleanNombre}">${p.nombre || 'Pieza'}</div>
+          <div class="text-truncate" title="${cleanNombre}">${cleanNombre}</div>
           ${cant > 1 ? `<span class="badge bg-secondary bg-opacity-10 text-secondary" style="font-size: 0.65rem;">x${cant} uds</span>` : ''}
         </td>
-        <td><span class="badge ${tipo === 'Del Inventario' ? 'bg-info bg-opacity-10 text-info' : 'bg-primary bg-opacity-10 text-primary'}" style="font-size: 0.68rem;">${tipo}</span></td>
-        <td>${g > 0 ? `${g.toFixed(1)}g` : '-'}</td>
-        <td class="text-muted">${tiempoTxt}</td>
-        <td class="fw-semibold text-dark">$${matCost.toFixed(2)}</td>
-        <td class="fw-semibold text-primary pe-3">$${maqCost.toFixed(2)}</td>
+        <td><span class="badge ${tipo === 'Del Inventario' ? 'bg-info bg-opacity-10 text-info' : 'bg-primary bg-opacity-10 text-primary'}" style="font-size: 0.68rem;">${escapeHtml(tipo)}</span></td>
+        <td>${escapeHtml(medida)}</td>
+        <td class="fw-semibold text-dark pe-3">$${matCost.toFixed(2)}</td>
       </tr>
     `;
+  }
+
+  function renderBloquesPiezas(itemPiezas: Parts[], tasaFallback: number): string {
+    if (!itemPiezas.length) {
+      return `
+        <div class="text-muted text-center py-2 fst-italic bg-light bg-opacity-25" style="font-size: 0.72rem;">
+          <i class="ti ti-info-circle me-1"></i>Ítem directo sin piezas desglosadas
+        </div>
+      `;
+    }
+    const bloques = agruparPiezasPorEquipo(itemPiezas);
+    return bloques.map(bloque => {
+      let maqRate = res.costoMaquinaRate;
+      if (!bloque.esInventario && allAssets && allAssets.length > 0) {
+        const pieceWithMaq = bloque.piezas.find(({ pieza }) => {
+          const pRec = pieza as unknown as Record<string, unknown>;
+          return pieza.maquina ?? pRec['maquina_id'] ?? pRec['activo_id'];
+        });
+        if (pieceWithMaq) {
+          const pRec = pieceWithMaq.pieza as unknown as Record<string, unknown>;
+          const maqId = pieceWithMaq.pieza.maquina ?? pRec['maquina_id'] ?? pRec['activo_id'];
+          const maq = allAssets.find(a => a.id == maqId);
+          if (maq) {
+            maqRate = costoHoraMaquina(maq).rate;
+          }
+        }
+      }
+      const bloqueMaqCost = bloque.esInventario ? 0 : (maqRate || 0) * (bloque.totalMinutos / 60);
+      const fallaBloque = bloque.esInventario
+        ? 0
+        : tasaFalloDePieza({ tecnologia: bloque.tecnologia }, tasasMapa, tasaFallback);
+      const filasPiezas = bloque.piezas.map(({ pieza }) => renderPiezaRow(pieza)).join('');
+
+      return `
+        <div class="border-bottom border-light">
+          <div class="bg-light bg-opacity-50 px-3 py-1 d-flex flex-wrap justify-content-between align-items-center gap-2 border-bottom border-light" style="font-size: 0.72rem;">
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge ${bloque.esInventario ? 'bg-success' : 'bg-primary'} bg-opacity-10 ${bloque.esInventario ? 'text-success' : 'text-primary'}">${escapeHtml(bloque.tecnologia)}</span>
+              <span class="fw-semibold text-dark">${escapeHtml(bloque.equipo)}</span>
+            </div>
+            ${!bloque.esInventario ? `
+              <div class="d-flex align-items-center gap-2 text-muted">
+                ${fallaBloque > 0 ? `<span class="badge bg-danger bg-opacity-10 text-danger">Falla: ${fallaBloque}%</span>` : ''}
+                <span class="badge bg-primary bg-opacity-10 text-primary">${bloque.horas}h ${bloque.minutos}m</span>
+                <span class="fw-semibold text-primary">Máq.: $${bloqueMaqCost.toFixed(2)}</span>
+              </div>
+            ` : ''}
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0 text-center" style="font-size: 0.75rem;">
+              <thead class="table-light text-muted" style="font-size: 0.68rem; background-color: #fafbfc;">
+                <tr>
+                  <th class="text-start ps-3 py-1 fw-semibold" style="width: 48%;">Pieza / Insumo</th>
+                  <th class="py-1 fw-semibold">Tipo</th>
+                  <th class="py-1 fw-semibold">Medida</th>
+                  <th class="py-1 fw-semibold pe-3">Costo Insumo</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filasPiezas}
+              </tbody>
+              ${!bloque.esInventario ? `
+                <tfoot>
+                  <tr class="table-light fw-semibold" style="font-size: 0.72rem;">
+                    <td colspan="2" class="text-end text-muted ps-3">Bloque ${escapeHtml(bloque.tecnologia)}:</td>
+                    <td class="text-primary">${bloque.horas}h ${bloque.minutos}m</td>
+                    <td class="text-primary pe-3">$${bloqueMaqCost.toFixed(2)}</td>
+                  </tr>
+                </tfoot>
+              ` : ''}
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   const itemsParaMostrar = lineas.length > 0 ? lineas : [{
@@ -201,18 +305,18 @@ export function showBudgetStudyModal(
 
   const productosHtml = itemsParaMostrar.map((item, idx) => {
     const itemPiezas = (item.piezas && item.piezas.length > 0) ? item.piezas : (itemsParaMostrar.length === 1 ? (norm.piezas || []) : []);
-    const filasPiezas = itemPiezas.map(renderPiezaRow).join('');
     const itemClasif = normalizarClasificacion(item.clasificacion);
     const isExpanded = itemsParaMostrar.length === 1 ? true : (idx === 0);
+    const bloquesHtml = renderBloquesPiezas(itemPiezas, Number(item.tasaFallo ?? norm.tasaFalloGlobal) || 0);
 
     return `
       <div class="card border border-light-subtle rounded-3 shadow-none mb-2 bg-white overflow-hidden">
         <div class="card-header bg-light bg-opacity-60 py-2 px-3 d-flex flex-wrap justify-content-between align-items-center cursor-pointer item-toggle-header" data-target="drawer-item-${idx}" style="cursor: pointer; user-select: none;">
           <div class="d-flex align-items-center gap-2">
             <span class="badge ${itemClasif === 'Servicio' ? 'bg-success' : 'bg-primary'} bg-opacity-10 ${itemClasif === 'Servicio' ? 'text-success' : 'text-primary'} fw-semibold px-2 py-1" style="font-size: 0.7rem;">
-              <i class="ti ${itemClasif === 'Servicio' ? 'ti-tools' : 'ti-box'} me-1"></i>${itemClasif}
+              <i class="ti ${itemClasif === 'Servicio' ? 'ti-tools' : 'ti-box'} me-1"></i>${escapeHtml(itemClasif)}
             </span>
-            <span class="fw-bold text-dark" style="font-size: 0.88rem;">${item.nombre || `Ítem ${idx + 1}`}</span>
+            <span class="fw-bold text-dark" style="font-size: 0.88rem;">${escapeHtml(item.nombre || `Ítem ${idx + 1}`)}</span>
             <span class="badge bg-light text-muted border px-2 py-0" style="font-size: 0.7rem;">
               ${item.cantidad > 1 ? `${item.cantidad} unidades` : '1 unidad'}
             </span>
@@ -230,29 +334,7 @@ export function showBudgetStudyModal(
           </div>
         </div>
         <div id="drawer-item-${idx}" class="item-drawer ${isExpanded ? '' : 'd-none'} border-top border-light">
-          ${filasPiezas ? `
-            <div class="table-responsive">
-              <table class="table table-sm table-hover align-middle mb-0 text-center" style="font-size: 0.75rem;">
-                <thead class="table-light text-muted" style="font-size: 0.68rem; background-color: #fafbfc;">
-                  <tr>
-                    <th class="text-start ps-3 py-1 fw-semibold" style="width: 38%;">Pieza / Insumo</th>
-                    <th class="py-1 fw-semibold">Tipo</th>
-                    <th class="py-1 fw-semibold">Gramos</th>
-                    <th class="py-1 fw-semibold">Tiempo</th>
-                    <th class="py-1 fw-semibold">Costo Insumo</th>
-                    <th class="py-1 fw-semibold pe-3">Costo Máq.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${filasPiezas}
-                </tbody>
-              </table>
-            </div>
-          ` : `
-            <div class="text-muted text-center py-2 fst-italic bg-light bg-opacity-25" style="font-size: 0.72rem;">
-              <i class="ti ti-info-circle me-1"></i>Ítem directo sin piezas desglosadas
-            </div>
-          `}
+          ${bloquesHtml}
         </div>
       </div>
     `;
